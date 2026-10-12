@@ -1,45 +1,81 @@
 import os
 import numpy as np
 import librosa
+import scipy.signal as signal
 from scipy.stats import skew
 
 TARGET_SR = 8000
 
+def denoise_audio(y, sr=TARGET_SR):
+    """
+    Audio preprocessing and noise reduction:
+    1. DC offset removal
+    2. 2nd-order Butterworth high-pass filter at 70 Hz: eliminates microphone handling rumble,
+       room resonance, and AC electrical hum (50/60 Hz) without affecting cat vocal range (150-2000+ Hz).
+    3. Intelligent voice activity trimming to remove leading and trailing background silence.
+    """
+    if len(y) == 0:
+        return y
+    # 1. DC offset removal
+    y_clean = y - np.mean(y)
+
+    # 2. High-pass filter at 70 Hz
+    try:
+        nyq = 0.5 * sr
+        b, a = signal.butter(2, 70.0 / nyq, btype='high')
+        y_clean = signal.filtfilt(b, a, y_clean)
+    except Exception:
+        pass
+
+    # 3. Trim silence
+    try:
+        y_trim, _ = librosa.effects.trim(y_clean, top_db=25)
+        if len(y_trim) >= int(sr * 0.25):
+            y_clean = y_trim
+    except Exception:
+        pass
+
+    return y_clean
+
 def extract_audio_features(y, sr=TARGET_SR):
     """
-    Extract a comprehensive set of 221 acoustic features from a cat vocalization audio.
+    Extract comprehensive 234 acoustic & bioacoustic features from cat vocalizations.
     Includes:
-    - Temporal & Energy features (duration, RMS stats, zero crossing rate)
-    - Spectral features (centroid, bandwidth, rolloff 85/95, flatness, contrast)
-    - MFCCs (20 coefficients) + 1st & 2nd order deltas
-    - Pitch / Fundamental Frequency (F0) using YIN
-    - Chroma pitch class features
+    - Base Temporal & Energy features (duration, RMS stats, zero crossing rate)
+    - Bioacoustic energy dynamics (RMS peak position, post-peak decay slope)
+    - Spectral characteristics (centroid, bandwidth, rolloffs at 25%, 50%, 85%, 95%, flatness, contrast, flux)
+    - MFCCs (20 coefficients) + 1st & 2nd order velocity and acceleration deltas
+    - Pitch / Fundamental Frequency (F0) dynamics using YIN (mean, median, std, min, max, range, IQR, voiced ratio, slope, curvature, jitter)
+    - Chroma pitch classes (12 semitones)
     """
-    # Trim silence
+    raw_duration = len(y) / sr
+
+    # Base trim for spectral consistency
     y_trimmed, _ = librosa.effects.trim(y, top_db=25)
     if len(y_trimmed) < int(sr * 0.2):
         y_trimmed = y
 
+    # Denoised audio for noise-sensitive dynamics
+    y_clean = denoise_audio(y, sr=sr)
+
     feats = {}
 
-    # 1. Temporal & Energy Features
+    # --- 1. ویژگی‌های زمانی و انرژی (Temporal & Energy Profile) ---
     duration = len(y_trimmed) / sr
-    total_duration = len(y) / sr
     feats['duration'] = float(duration)
-    feats['duration_ratio'] = float(duration / (total_duration + 1e-6))
+    feats['duration_ratio'] = float(duration / (raw_duration + 1e-6))
 
     rms = librosa.feature.rms(y=y_trimmed)[0]
     feats['rms_mean'] = float(np.mean(rms))
     feats['rms_std'] = float(np.std(rms))
     feats['rms_max'] = float(np.max(rms))
-    feats['rms_min'] = float(np.min(rms))
     feats['rms_skew'] = float(skew(rms)) if len(rms) > 3 else 0.0
 
     zcr = librosa.feature.zero_crossing_rate(y=y_trimmed)[0]
     feats['zcr_mean'] = float(np.mean(zcr))
     feats['zcr_std'] = float(np.std(zcr))
 
-    # 2. Spectral Features
+    # --- 2. ویژگی‌های طیفی پایه (Spectral Features) ---
     cent = librosa.feature.spectral_centroid(y=y_trimmed, sr=sr)[0]
     feats['cent_mean'] = float(np.mean(cent))
     feats['cent_std'] = float(np.std(cent))
@@ -67,7 +103,7 @@ def extract_audio_features(y, sr=TARGET_SR):
         feats[f'contrast_mean_{i}'] = float(np.mean(contrast[i]))
         feats[f'contrast_std_{i}'] = float(np.std(contrast[i]))
 
-    # 3. MFCC (20 coefficients) + 1st and 2nd order deltas
+    # --- 3. ضرایب مپ‌استرال (MFCCs 1-20 + Deltas + Delta-Deltas) ---
     hop_length = 256
     n_fft = 512
     mfcc = librosa.feature.mfcc(y=y_trimmed, sr=sr, n_mfcc=20, n_fft=n_fft, hop_length=hop_length)
@@ -89,9 +125,10 @@ def extract_audio_features(y, sr=TARGET_SR):
         feats[f'mfcc_delta2_mean_{i}'] = float(np.mean(mfcc_delta2[i]))
         feats[f'mfcc_delta2_std_{i}'] = float(np.std(mfcc_delta2[i]))
 
-    # 4. Fundamental Frequency (F0 / Pitch Contour)
+    # --- 4. فرکانس پایه (F0 / Pitch Contour & Dynamics) ---
     try:
-        f0 = librosa.yin(y_trimmed, fmin=150, fmax=2000, sr=sr)
+        y_f0 = np.ascontiguousarray(y_trimmed, dtype=np.float64)
+        f0 = librosa.yin(y_f0, fmin=150, fmax=2000, sr=sr)
         valid_f0 = f0[(f0 >= 160) & (f0 <= 1950)]
         if len(valid_f0) > 3:
             feats['f0_mean'] = float(np.mean(valid_f0))
@@ -119,11 +156,61 @@ def extract_audio_features(y, sr=TARGET_SR):
         feats['f0_voiced_ratio'] = 0.0
         feats['f0_slope'] = 0.0
 
-    # 5. Chroma Pitch Classes (12 semitones)
+    # --- 5. رده‌های کرومایی (Chroma Pitch Classes) ---
     chroma = librosa.feature.chroma_stft(y=y_trimmed, sr=sr)
     for i in range(12):
         feats[f'chroma_mean_{i}'] = float(np.mean(chroma[i]))
         feats[f'chroma_std_{i}'] = float(np.std(chroma[i]))
+
+    # --- 6. ویژگی‌های بایوآکوستیک حاصل از سیگنال پالایش‌شده (Denoised Bioacoustic Dynamics) ---
+    # الف) دینامیک اوج و شیب افت انرژی
+    rms_c = librosa.feature.rms(y=y_clean, hop_length=128)[0]
+    peak_idx = np.argmax(rms_c) if len(rms_c) > 0 else 0
+    feats['rms_peak_pos'] = float(peak_idx / max(1, len(rms_c)))
+    if peak_idx < len(rms_c) - 2:
+        decay_seg = rms_c[peak_idx:]
+        feats['rms_decay_slope'] = float(np.polyfit(np.arange(len(decay_seg)), decay_seg, 1)[0])
+    else:
+        feats['rms_decay_slope'] = 0.0
+
+    # ب) شار طیفی و شدت برانگیختگی (Spectral Flux / Onset Strength)
+    onset_env = librosa.onset.onset_strength(y=y_clean, sr=sr, hop_length=128)
+    feats['flux_mean'] = float(np.mean(onset_env))
+    feats['flux_std'] = float(np.std(onset_env))
+    feats['flux_max'] = float(np.max(onset_env))
+
+    # ج) رول‌آف در صدک‌های ۲۵ و ۵۰ درصد (Multi-percentile Rolloffs)
+    ro_25 = librosa.feature.spectral_rolloff(y=y_clean, sr=sr, roll_percent=0.25, hop_length=128)[0]
+    feats['rolloff_25_mean'] = float(np.mean(ro_25))
+    feats['rolloff_25_std'] = float(np.std(ro_25))
+
+    ro_50 = librosa.feature.spectral_rolloff(y=y_clean, sr=sr, roll_percent=0.50, hop_length=128)[0]
+    feats['rolloff_50_mean'] = float(np.mean(ro_50))
+    feats['rolloff_50_std'] = float(np.std(ro_50))
+
+    # د) ویژگی‌های پیشرفته پیچ (Median, IQR, Curvature, Jitter)
+    try:
+        y_clean_f0 = np.ascontiguousarray(y_clean, dtype=np.float64)
+        f0_c = librosa.yin(y_clean_f0, fmin=150, fmax=2000, sr=sr)
+        valid_f0_c = f0_c[(f0_c >= 160) & (f0_c <= 1950)]
+        if len(valid_f0_c) > 4:
+            feats['f0_median'] = float(np.median(valid_f0_c))
+            feats['f0_iqr'] = float(np.percentile(valid_f0_c, 75) - np.percentile(valid_f0_c, 25))
+            x_idx = np.linspace(0, 1, len(valid_f0_c))
+            poly2 = np.polyfit(x_idx, valid_f0_c, 2)
+            feats['f0_curvature'] = float(poly2[0])
+            diff_f0 = np.abs(np.diff(valid_f0_c))
+            feats['f0_jitter'] = float(np.mean(diff_f0) / (np.mean(valid_f0_c) + 1e-6))
+        else:
+            feats['f0_median'] = 0.0
+            feats['f0_iqr'] = 0.0
+            feats['f0_curvature'] = 0.0
+            feats['f0_jitter'] = 0.0
+    except Exception:
+        feats['f0_median'] = 0.0
+        feats['f0_iqr'] = 0.0
+        feats['f0_curvature'] = 0.0
+        feats['f0_jitter'] = 0.0
 
     return feats
 
