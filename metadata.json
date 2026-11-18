@@ -1,0 +1,10 @@
+{
+  "name": "Meow",
+  "description": "Cat Voice Translator & Bioacoustic AI Analyzer powered by on-device Hybrid Late Fusion (234-feature Bioacoustic Pipeline + 128-bin Mel Spectrogram CNN).",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
