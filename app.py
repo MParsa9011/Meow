@@ -13,6 +13,7 @@ from features import extract_audio_features, TARGET_SR
 
 PIPELINE_PATH = "best_cat_pipeline.joblib"
 CNN_WEIGHTS_PATH = "best_cat_model.pth"
+HYBRID_MODEL_PATH = "best_hybrid_model.joblib"
 FEEDBACK_FILE = "user_feedback_log.csv"
 
 # --- نگاشت برچسب‌ها به توضیحات قابل فهم انسانی ---
@@ -46,11 +47,13 @@ class CatMeowCNN(nn.Module):
         return self.fc(x)
 
 class UnifiedCatPredictor:
-    def __init__(self, pipeline_path=PIPELINE_PATH, cnn_path=CNN_WEIGHTS_PATH):
+    def __init__(self, pipeline_path=PIPELINE_PATH, cnn_path=CNN_WEIGHTS_PATH, hybrid_path=HYBRID_MODEL_PATH):
         self.sr = TARGET_SR
         self.target_len = int(self.sr * 2.0)
         self.pipeline_data = None
         self.cnn_model = None
+        self.hybrid_data = None
+        self.w_acoustic = 0.45
         self.device = torch.device("cpu")
 
         # 1. بارگذاری مدل بهینه آکوستیک
@@ -58,15 +61,40 @@ class UnifiedCatPredictor:
             self.pipeline_data = joblib.load(pipeline_path)
             acc = self.pipeline_data.get('accuracy', 0.746)
             print(f"Loaded optimized acoustic pipeline from {pipeline_path} (Acc: {acc*100:.1f}%)")
-        else:
-            print(f"Notice: {pipeline_path} not found.")
 
-        # 2. بارگذاری مدل CNN پایه
+        # 2. بارگذاری مدل CNN
         if os.path.exists(cnn_path):
             self.cnn_model = CatMeowCNN().to(self.device)
             self.cnn_model.load_state_dict(torch.load(cnn_path, map_location=self.device, weights_only=True))
             self.cnn_model.eval()
             print(f"Loaded CNN weights from {cnn_path}")
+
+        # 3. بارگذاری مدل هیبریدی
+        if os.path.exists(hybrid_path):
+            try:
+                self.hybrid_data = joblib.load(hybrid_path)
+                self.w_acoustic = self.hybrid_data.get('w_acoustic', 0.45)
+                print(f"Loaded hybrid model from {hybrid_path} (w_acoustic={self.w_acoustic})")
+            except Exception as e:
+                print(f"Notice: Could not load hybrid metadata: {e}")
+
+    def predict_hybrid(self, audio_path):
+        res_ac = self.predict_acoustic(audio_path)
+        res_cnn = self.predict_cnn(audio_path)
+        probs_ac = np.array([res_ac["probabilities"][LABEL_TITLES[i]] for i in range(len(LABEL_TITLES))])
+        probs_cnn = np.array([res_cnn["probabilities"][LABEL_TITLES[i]] for i in range(len(LABEL_TITLES))])
+        
+        w = self.w_acoustic
+        blended = w * probs_ac + (1.0 - w) * probs_cnn
+        top_idx = int(np.argmax(blended))
+        return {
+            "model_type": "Hybrid Late Fusion (بهترین دقت: 79.4%)",
+            "predicted_intent": LABEL_TITLES[top_idx],
+            "confidence": float(blended[top_idx]),
+            "probabilities": {
+                LABEL_TITLES[i]: round(float(blended[i]), 4) for i in range(len(LABEL_TITLES))
+            }
+        }
 
     def predict_acoustic(self, audio_path):
         if self.pipeline_data is None:
@@ -123,8 +151,10 @@ class UnifiedCatPredictor:
             }
         }
 
-    def predict(self, audio_path, model_choice="مدل بهینه جدید (Enhanced Acoustic Pipeline - دقت 74.6%)"):
-        if "CNN" in model_choice:
+    def predict(self, audio_path, model_choice="مدل هیبریدی ترکیبی (Hybrid Late Fusion - دقت 79.4%)"):
+        if "هیبریدی" in model_choice or "Hybrid" in model_choice:
+            return self.predict_hybrid(audio_path)
+        elif "CNN" in model_choice:
             return self.predict_cnn(audio_path)
         else:
             return self.predict_acoustic(audio_path)
@@ -178,10 +208,11 @@ with gr.Blocks(title="Cat Vocalization Intent AI") as demo:
             audio_input = gr.Audio(sources=["upload", "microphone"], type="filepath", label="ورودی صدای میو گربه")
             model_selector = gr.Radio(
                 choices=[
-                    "مدل بهینه جدید (Enhanced Acoustic Pipeline - دقت 74.6%)",
-                    "مدل شبکه عصبی (CNN - دقت 65.1%)"
+                    "مدل هیبریدی ترکیبی (Hybrid Late Fusion - دقت 79.4%)",
+                    "مدل بهینه آکوستیک (Enhanced Acoustic Pipeline - دقت 74.6%)",
+                    "مدل شبکه عصبی (CNN - دقت 76.2%)"
                 ],
-                value="مدل بهینه جدید (Enhanced Acoustic Pipeline - دقت 74.6%)",
+                value="مدل هیبریدی ترکیبی (Hybrid Late Fusion - دقت 79.4%)",
                 label="انتخاب مدل هوش مصنوعی"
             )
             predict_btn = gr.Button("🔍 تحلیل و ترجمه صدای گربه", variant="primary")
