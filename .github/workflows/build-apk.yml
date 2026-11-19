@@ -68,31 +68,37 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.build_type == 'release'
         run: gradle assembleRelease --stacktrace
 
-      - name: Check if Keystore Secret is configured
-        id: check_keystore
+      - name: Sign Release APK
         if: github.event_name == 'workflow_dispatch' && inputs.build_type == 'release'
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "has_keystore=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_keystore=false" >> "$GITHUB_OUTPUT"
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "KEYSTORE_BASE64 secret is missing!"
+            exit 1
           fi
 
-      - name: Sign Release APK
-        if: github.event_name == 'workflow_dispatch' && inputs.build_type == 'release' && steps.check_keystore.outputs.has_keystore == 'true'
-        uses: r0adkll/sign-android-release@v1
-        with:
-          releaseDirectory: app/build/outputs/apk/release
-          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
-          alias: ${{ secrets.KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
+          echo "$KEYSTORE_BASE64" | base64 --decode > release.keystore
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME/build-tools/"* | sort -V | tail -n 1)
+          UNSIGNED_APK=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
+
+          "$BUILD_TOOLS/zipalign" -v -p 4 "$UNSIGNED_APK" app/build/outputs/apk/release/app-aligned.apk
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks release.keystore \
+            --ks-pass "pass:$KEYSTORE_PASSWORD" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --key-pass "pass:$KEY_PASSWORD" \
+            --out app/build/outputs/apk/release/meow-release-signed.apk \
+            app/build/outputs/apk/release/app-aligned.apk
+
+          rm -f release.keystore app/build/outputs/apk/release/app-aligned.apk "$UNSIGNED_APK"
 
       - name: Upload Release APK
         if: github.event_name == 'workflow_dispatch' && inputs.build_type == 'release'
         uses: actions/upload-artifact@v4
         with:
           name: meow-app-release-apk
-          path: app/build/outputs/apk/release/*.apk
+          path: app/build/outputs/apk/release/meow-release-signed.apk
