@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.audio.AudioRecorderManager
 import com.example.audio.CatAiInferenceEngine
 import com.example.data.local.MeowRepository
+import com.example.data.model.AppLanguage
 import com.example.data.model.AppSettings
 import com.example.data.model.BundledSample
 import com.example.data.model.IntentCode
@@ -104,6 +105,46 @@ class MainViewModel(
                     expandedMatchRank = 1
                 )
             }
+        }
+    }
+
+    private fun isFa(): Boolean = settings.value.language == AppLanguage.FA
+
+    fun toggleLanguage() {
+        val next = if (isFa()) AppLanguage.EN else AppLanguage.FA
+        setLanguage(next)
+    }
+
+    fun setLanguage(language: AppLanguage) {
+        repository.updateSettings { it.copy(language = language) }
+        showToast(
+            if (language == AppLanguage.FA) "زبان برنامه به فارسی تغییر یافت"
+            else "App language switched to English"
+        )
+    }
+
+    fun activateProFromMyket(sku: String) {
+        repository.updateSettings { it.copy(isProMember = true) }
+        showToast(
+            if (isFa()) "اشتراک میو پرو با موفقیت از مایکت فعال شد ($sku)"
+            else "Meow Pro activated via Myket ($sku)"
+        )
+    }
+
+    fun syncProOwnershipFromMyket(hasPro: Boolean) {
+        if (hasPro && !settings.value.isProMember) {
+            repository.updateSettings { it.copy(isProMember = true) }
+        }
+    }
+
+    fun completeOnboarding(pet: PetProfile) {
+        viewModelScope.launch {
+            repository.addPet(pet, setAsActive = true)
+            repository.updateSettings { it.copy(onboardingCompleted = true) }
+            showToast(
+                if (isFa()) "پروفایل ${pet.name} با موفقیت ذخیره شد!"
+                else "${pet.name}'s profile saved!"
+            )
         }
     }
 
@@ -430,7 +471,10 @@ class MainViewModel(
 
     fun setModelEngine(engine: ModelEngineType) {
         repository.updateSettings { it.copy(modelEngine = engine) }
-        showToast("AI Engine: ${engine.displayName}")
+        showToast(
+            if (isFa()) "مدل هوش مصنوعی فعال شد: ${engine.displayName}"
+            else "AI Engine: ${engine.displayName}"
+        )
     }
 
     fun updateSettings(transform: (AppSettings) -> AppSettings) {

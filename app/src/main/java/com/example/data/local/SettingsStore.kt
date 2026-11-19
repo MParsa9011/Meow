@@ -2,6 +2,7 @@ package com.example.data.local
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.data.model.AppLanguage
 import com.example.data.model.AppSettings
 import com.example.data.model.ModelEngineType
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,7 @@ class SettingsStore(context: Context) {
 
     private fun load(): AppSettings {
         return AppSettings(
+            language = AppLanguage.fromCode(prefs.getString("language", AppLanguage.FA.code)),
             modelEngine = ModelEngineType.fromId(prefs.getString("model", "hybrid") ?: "hybrid"),
             sensitivityLevel = prefs.getString("sensitivity", "Medium") ?: "Medium",
             noiseFilterEnabled = prefs.getBoolean("noise_filter", true),
@@ -28,7 +30,8 @@ class SettingsStore(context: Context) {
             feedingReminderSync = prefs.getBoolean("feeding_sync", false),
             saveAudioLocally = prefs.getBoolean("save_locally", true),
             showPersianSubtitles = prefs.getBoolean("show_persian", true),
-            isProMember = prefs.getBoolean("is_pro", false)
+            isProMember = prefs.getBoolean("is_pro", false),
+            onboardingCompleted = prefs.getBoolean("onboarding_completed", false)
         )
     }
 
@@ -36,6 +39,7 @@ class SettingsStore(context: Context) {
         val next = transform(_settings.value)
         _settings.value = next
         prefs.edit()
+            .putString("language", next.language.code)
             .putString("model", next.modelEngine.id)
             .putString("sensitivity", next.sensitivityLevel)
             .putBoolean("noise_filter", next.noiseFilterEnabled)
@@ -48,6 +52,7 @@ class SettingsStore(context: Context) {
             .putBoolean("save_locally", next.saveAudioLocally)
             .putBoolean("show_persian", next.showPersianSubtitles)
             .putBoolean("is_pro", next.isProMember)
+            .putBoolean("onboarding_completed", next.onboardingCompleted)
             .apply()
     }
 }

@@ -3,14 +3,19 @@ package com.example
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -18,6 +23,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +35,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.billing.MyketIabHelper
+import com.example.billing.MyketSecurity
+import com.example.data.model.AppLanguage
+import com.example.data.model.IntentCode
 import com.example.data.model.PetProfile
 import com.example.ui.MainViewModel
 import com.example.ui.RecordingPhase
@@ -42,9 +52,12 @@ import com.example.ui.modals.MeowProBottomSheet
 import com.example.ui.modals.PrivacyPolicyDialog
 import com.example.ui.modals.SwitchPetBottomSheet
 import com.example.ui.screens.HistoryScreen
+import com.example.ui.screens.OnboardingScreen
 import com.example.ui.screens.ProfileScreen
 import com.example.ui.screens.SettingsScreen
+import com.example.ui.screens.SplashVideoScreen
 import com.example.ui.screens.TranslateScreen
+import com.example.ui.theme.LocalMeowStrings
 import com.example.ui.theme.MeowTheme
 import com.example.ui.theme.Surface
 
@@ -55,12 +68,39 @@ class MainActivity : ComponentActivity() {
         MainViewModel.Factory(app.repository, app.aiEngine, app.audioManager)
     }
 
+    private var myketHelper: MyketIabHelper? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        val publicKey = MyketSecurity.resolveRuntimePublicKey()
+        val helper = MyketIabHelper(this, publicKey)
+        myketHelper = helper
+
+        helper.startSetup(object : MyketIabHelper.OnIabSetupFinishedListener {
+            override fun onIabSetupFinished(result: com.example.billing.IabResult) {
+                if (!result.isSuccess) return
+                helper.queryInventoryAsync(
+                    listOf(MyketIabHelper.SKU_PRO_MONTHLY, MyketIabHelper.SKU_PRO_LIFETIME)
+                ) { invResult, inventory ->
+                    if (invResult.isSuccess && inventory != null) {
+                        val ownsPro = inventory.hasPurchase(MyketIabHelper.SKU_PRO_MONTHLY) ||
+                            inventory.hasPurchase(MyketIabHelper.SKU_PRO_LIFETIME)
+                        viewModel.syncProOwnershipFromMyket(ownsPro)
+                    }
+                }
+            }
+        })
+
         setContent {
-            MeowTheme {
+            val settings by viewModel.settings.collectAsStateWithLifecycle()
+            var showSplash by rememberSaveable { mutableStateOf(true) }
+
+            Box(modifier = Modifier.fillMaxSize()) {
+                MeowTheme(language = settings.language) {
+                val strings = LocalMeowStrings.current
+                val isFa = settings.language == AppLanguage.FA
                 val context = LocalContext.current
                 val navController = rememberNavController()
                 val backStackEntry by navController.currentBackStackEntryAsState()
@@ -70,11 +110,12 @@ class MainActivity : ComponentActivity() {
                 val activePet by viewModel.activePet.collectAsStateWithLifecycle()
                 val translations by viewModel.translations.collectAsStateWithLifecycle()
                 val feedbackLogs by viewModel.feedbackLogs.collectAsStateWithLifecycle()
-                val settings by viewModel.settings.collectAsStateWithLifecycle()
                 val translatorState by viewModel.translatorState.collectAsStateWithLifecycle()
                 val liveAmplitudes by viewModel.liveAmplitudes.collectAsStateWithLifecycle()
                 val playingAudioId by viewModel.playingAudioId.collectAsStateWithLifecycle()
                 val toastMessage by viewModel.toastMessage.collectAsStateWithLifecycle()
+
+                val myketBillingState by helper.billingState.collectAsStateWithLifecycle()
 
                 var hasMicPermission by remember {
                     mutableStateOf(
@@ -92,6 +133,12 @@ class MainActivity : ComponentActivity() {
                 var showHowAiDialog by remember { mutableStateOf(false) }
                 var showPrivacyDialog by remember { mutableStateOf(false) }
 
+                val myketPurchaseLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.StartIntentSenderForResult()
+                ) { activityResult ->
+                    helper.handleActivityResult(activityResult.resultCode, activityResult.data)
+                }
+
                 val micPermissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestPermission()
                 ) { granted ->
@@ -99,7 +146,10 @@ class MainActivity : ComponentActivity() {
                     if (granted) {
                         viewModel.startRecording()
                     } else {
-                        viewModel.showToast("Microphone permission is required to record live cat meows")
+                        viewModel.showToast(
+                            if (isFa) "برای ضبط صدای گربه دسترسی میکروفون لازم است"
+                            else "Microphone permission is required to record live cat meows"
+                        )
                     }
                 }
 
@@ -111,19 +161,41 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                var onboardingAvatarUri by remember { mutableStateOf<Uri?>(null) }
+
                 val photoPickerLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.PickVisualMedia()
                 ) { uri ->
                     if (uri != null) {
-                        viewModel.updatePetCustomAvatar(uri)
+                        if (!settings.onboardingCompleted) {
+                            onboardingAvatarUri = uri
+                        } else {
+                            viewModel.updatePetCustomAvatar(uri)
+                        }
                     }
                 }
 
+                if (!settings.onboardingCompleted) {
+                    OnboardingScreen(
+                        customAvatarUri = onboardingAvatarUri,
+                        onPickPhoto = {
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                        onToggleLanguage = { viewModel.toggleLanguage() },
+                        onCompleteOnboarding = { pet ->
+                            viewModel.completeOnboarding(pet)
+                        }
+                    )
+                    return@MeowTheme
+                }
+
                 val subtitle = when (currentRoute) {
-                    MeowTab.HISTORY.route -> "Translation History"
-                    MeowTab.PROFILE.route -> "${activePet?.name ?: "Cat"} Profile"
-                    MeowTab.SETTINGS.route -> "AI & Audio Settings"
-                    else -> "Cat Voice Translator"
+                    MeowTab.HISTORY.route -> strings.subtitleHistory
+                    MeowTab.PROFILE.route -> strings.subtitleProfileFormat.format(activePet?.name ?: "Lucy")
+                    MeowTab.SETTINGS.route -> strings.subtitleSettings
+                    else -> strings.subtitleTranslate
                 }
 
                 val navigateTab: (MeowTab) -> Unit = { tab ->
@@ -145,6 +217,7 @@ class MainActivity : ComponentActivity() {
                             subtitle = subtitle,
                             activePet = activePet,
                             isPro = settings.isProMember,
+                            onToggleLanguage = { viewModel.toggleLanguage() },
                             onSettingsClick = { navigateTab(MeowTab.SETTINGS) },
                             onProfileClick = { navigateTab(MeowTab.PROFILE) }
                         )
@@ -204,20 +277,20 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onShareResult = { match ->
                                         val shareText = buildString {
-                                            append("${activePet?.name ?: "Cat"}'s Meow Translation: ")
-                                            append("${match.title} (${match.percentage}% match)")
+                                            append("${activePet?.name ?: "Cat"}: ")
+                                            append("${if (isFa) match.titleFa else match.title} (${match.percentage}%)")
                                             if (settings.showPersianSubtitles) {
-                                                append(" — ${match.titleFa}")
+                                                append(" — ${if (isFa) match.title else match.titleFa}")
                                             }
-                                            append("\nPitch: ${match.pitchHz} • Duration: ${match.durationSec}")
-                                            append("\n${match.description}")
+                                            append("\nF0: ${match.pitchHz} • ${match.durationSec}")
+                                            append("\n${if (isFa) match.descriptionFa else match.description}")
                                         }
                                         val intent = Intent(Intent.ACTION_SEND).apply {
                                             type = "text/plain"
                                             putExtra(Intent.EXTRA_TEXT, shareText)
                                         }
                                         context.startActivity(
-                                            Intent.createChooser(intent, "Share Cat Translation")
+                                            Intent.createChooser(intent, strings.aiVoiceAnalysis)
                                         )
                                     },
                                     onSubmitFeedback = { verdict, corrected ->
@@ -243,7 +316,7 @@ class MainActivity : ComponentActivity() {
                                         } else {
                                             viewModel.playCatResponse(
                                                 "hist_play_${record.id}",
-                                                com.example.data.model.IntentCode.fromCode(record.intentCode)
+                                                IntentCode.fromCode(record.intentCode)
                                             )
                                         }
                                     },
@@ -289,6 +362,7 @@ class MainActivity : ComponentActivity() {
                                     activePet = activePet,
                                     settings = settings,
                                     feedbackCount = feedbackLogs.size,
+                                    onSelectLanguage = { lang -> viewModel.setLanguage(lang) },
                                     onSelectEngine = { engine -> viewModel.setModelEngine(engine) },
                                     onUpdateSettings = { transform -> viewModel.updateSettings(transform) },
                                     onSwitchPet = { showSwitchPetSheet = true },
@@ -334,9 +408,66 @@ class MainActivity : ComponentActivity() {
                 if (showProSheet) {
                     MeowProBottomSheet(
                         isProMember = settings.isProMember,
-                        onActivateProPlaceholder = {
-                            viewModel.updateSettings { it.copy(isProMember = !it.isProMember) }
-                            viewModel.showToast("Meow Pro preview toggled (TODO: Google Play Billing)")
+                        billingState = myketBillingState,
+                        onPurchaseSku = { sku ->
+                            if (!myketBillingState.isPublicKeyConfigured) {
+                                viewModel.showToast(strings.myketMissingKeyHint)
+                            } else if (!myketBillingState.isBillingSupported) {
+                                viewModel.showToast(strings.myketNotReadyHint)
+                            } else {
+                                helper.preparePurchaseIntentSender(
+                                    sku = sku,
+                                    itemType = MyketIabHelper.ITEM_TYPE_INAPP,
+                                    developerPayload = "meow_pro_${sku}",
+                                    onIntentReady = { intentSender ->
+                                        if (intentSender != null) {
+                                            myketPurchaseLauncher.launch(
+                                                IntentSenderRequest.Builder(intentSender).build()
+                                            )
+                                        }
+                                    },
+                                    onFinished = { res, purchase ->
+                                        if (res.isSuccess && purchase != null) {
+                                            viewModel.activateProFromMyket(purchase.sku)
+                                            showProSheet = false
+                                        } else if (res.response == MyketIabHelper.BILLING_RESPONSE_RESULT_ITEM_ALREADY_OWNED) {
+                                            viewModel.activateProFromMyket(sku)
+                                            showProSheet = false
+                                        } else {
+                                            viewModel.showToast(
+                                                if (isFa) "پرداخت مایکت تکمیل نشد: ${res.message}"
+                                                else "Myket checkout: ${res.message}"
+                                            )
+                                        }
+                                    }
+                                )
+                            }
+                        },
+                        onRestorePurchases = {
+                            if (!myketBillingState.isBillingSupported) {
+                                viewModel.showToast(strings.myketNotReadyHint)
+                            } else {
+                                helper.queryInventoryAsync(
+                                    listOf(MyketIabHelper.SKU_PRO_MONTHLY, MyketIabHelper.SKU_PRO_LIFETIME)
+                                ) { res, inv ->
+                                    if (res.isSuccess && inv != null) {
+                                        val owned = inv.getAllOwnedSkus()
+                                        if (owned.isNotEmpty()) {
+                                            viewModel.activateProFromMyket(owned.first())
+                                        } else {
+                                            viewModel.showToast(
+                                                if (isFa) "خرید فعالی در حساب مایکت یافت نشد"
+                                                else "No active Myket purchases found"
+                                            )
+                                        }
+                                    } else {
+                                        viewModel.showToast(
+                                            if (isFa) "خطا در بازیابی از مایکت: ${res.message}"
+                                            else "Myket restore error: ${res.message}"
+                                        )
+                                    }
+                                }
+                            }
                         },
                         onDismiss = { showProSheet = false }
                     )
@@ -349,7 +480,24 @@ class MainActivity : ComponentActivity() {
                 if (showPrivacyDialog) {
                     PrivacyPolicyDialog(onDismiss = { showPrivacyDialog = false })
                 }
+                }
+
+                AnimatedVisibility(
+                    visible = showSplash,
+                    exit = fadeOut(animationSpec = tween(durationMillis = 350)),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    SplashVideoScreen(
+                        onFinished = { showSplash = false }
+                    )
+                }
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        myketHelper?.dispose()
+        myketHelper = null
     }
 }

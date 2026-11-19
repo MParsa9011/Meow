@@ -2,12 +2,10 @@ package com.example.ui.modals
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,11 +24,15 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,10 +60,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.billing.MyketBillingState
+import com.example.billing.MyketIabHelper
 import com.example.data.model.PetProfile
 import com.example.ui.components.CatAvatarImage
 import com.example.ui.theme.ConfidenceEmerald
 import com.example.ui.theme.ConfidenceEmeraldBg
+import com.example.ui.theme.LocalMeowStrings
 import com.example.ui.theme.OnPrimary
 import com.example.ui.theme.OnPrimaryContainer
 import com.example.ui.theme.OnPrimaryFixed
@@ -86,6 +91,7 @@ fun SwitchPetBottomSheet(
     onAddNewPet: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val strings = LocalMeowStrings.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -104,21 +110,21 @@ fun SwitchPetBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Switch Cat Profile",
+                        text = strings.switchCatModalTitle,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.ExtraBold,
                         color = OnSurface
                     )
                     Text(
-                        text = "Tailor pitch calibration & history to your active cat",
+                        text = strings.switchCatModalSubtitle,
                         style = MaterialTheme.typography.bodySmall,
                         color = OnSurfaceVariant
                     )
                 }
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Filled.Close, contentDescription = "Close", tint = OnSurfaceVariant)
+                    Icon(Icons.Filled.Close, contentDescription = strings.closeButton, tint = OnSurfaceVariant)
                 }
             }
 
@@ -158,7 +164,7 @@ fun SwitchPetBottomSheet(
                                 if (pet.isActive) {
                                     Surface(color = PrimaryContainer, shape = CircleShape) {
                                         Text(
-                                            text = "Active",
+                                            text = strings.activeBadge,
                                             style = MaterialTheme.typography.labelSmall,
                                             color = OnPrimary,
                                             modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
@@ -175,7 +181,7 @@ fun SwitchPetBottomSheet(
                         if (pet.isActive) {
                             Icon(
                                 imageVector = Icons.Filled.CheckCircle,
-                                contentDescription = "Selected pet",
+                                contentDescription = strings.activeBadge,
                                 tint = Primary
                             )
                         }
@@ -200,7 +206,7 @@ fun SwitchPetBottomSheet(
             ) {
                 Icon(Icons.Filled.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Add New Cat Profile")
+                Text(strings.addNewCatButton)
             }
             Spacer(modifier = Modifier.height(10.dp))
         }
@@ -214,6 +220,7 @@ fun AddOrEditPetBottomSheet(
     onSavePet: (PetProfile, Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val strings = LocalMeowStrings.current
     val isNew = existingPet == null
     var name by remember(existingPet) { mutableStateOf(existingPet?.name ?: "") }
     var breed by remember(existingPet) { mutableStateOf(existingPet?.breed ?: "Domestic Shorthair") }
@@ -256,21 +263,21 @@ fun AddOrEditPetBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (isNew) "Add Cat Profile" else "Edit ${existingPet?.name}",
+                    text = if (isNew) strings.addCatModalTitle else "${strings.editCatModalPrefix}${existingPet?.name}",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.ExtraBold,
                     color = OnSurface
                 )
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Filled.Close, contentDescription = "Close")
+                    Icon(Icons.Filled.Close, contentDescription = strings.closeButton)
                 }
             }
 
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Cat Name") },
-                placeholder = { Text("e.g., Cleo, Ginger, Luna") },
+                label = { Text(strings.catNameLabel) },
+                placeholder = { Text(strings.catNamePlaceholder) },
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -284,7 +291,7 @@ fun AddOrEditPetBottomSheet(
             )
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Breed", style = MaterialTheme.typography.labelMedium, color = OnSurfaceVariant)
+                Text(strings.breedLabel, style = MaterialTheme.typography.labelMedium, color = OnSurfaceVariant)
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -308,20 +315,19 @@ fun AddOrEditPetBottomSheet(
                 }
             }
 
-            // Age Years / Months Steppers
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 StepperBox(
-                    label = "Age (Years)",
+                    label = strings.ageYearsLabel,
                     value = ageYears,
                     onDec = { if (ageYears > 0) ageYears-- },
                     onInc = { if (ageYears < 25) ageYears++ },
                     modifier = Modifier.weight(1f)
                 )
                 StepperBox(
-                    label = "Age (Months)",
+                    label = strings.ageMonthsLabel,
                     value = ageMonths,
                     onDec = { if (ageMonths > 0) ageMonths-- },
                     onInc = { if (ageMonths < 11) ageMonths++ },
@@ -329,15 +335,14 @@ fun AddOrEditPetBottomSheet(
                 )
             }
 
-            // Sex & Reproductive status
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf("Female", "Male").forEach { s ->
-                    val picked = sex == s
+                listOf("Female" to strings.sexFemale, "Male" to strings.sexMale).forEach { (sKey, sLabel) ->
+                    val picked = sex == sKey
                     Surface(
-                        onClick = { sex = s },
+                        onClick = { sex = sKey },
                         color = if (picked) PrimaryContainer else SurfaceContainerLow,
                         shape = CircleShape,
                         modifier = Modifier
@@ -346,7 +351,7 @@ fun AddOrEditPetBottomSheet(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text(
-                                text = s,
+                                text = sLabel,
                                 style = MaterialTheme.typography.labelLarge,
                                 color = if (picked) OnPrimary else OnSurfaceVariant
                             )
@@ -359,10 +364,13 @@ fun AddOrEditPetBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf("Spayed / Neutered", "Intact").forEach { r ->
-                    val picked = repro == r
+                listOf(
+                    "Spayed / Neutered" to strings.reproNeutered,
+                    "Intact" to strings.reproIntact
+                ).forEach { (rKey, rLabel) ->
+                    val picked = repro == rKey
                     Surface(
-                        onClick = { repro = r },
+                        onClick = { repro = rKey },
                         color = if (picked) PrimaryFixed else SurfaceContainerLow,
                         shape = CircleShape,
                         border = BorderStroke(1.dp, if (picked) PrimaryContainer else OutlineVariant),
@@ -372,7 +380,7 @@ fun AddOrEditPetBottomSheet(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text(
-                                text = r,
+                                text = rLabel,
                                 style = MaterialTheme.typography.labelMedium,
                                 color = if (picked) OnPrimaryFixed else OnSurfaceVariant
                             )
@@ -381,15 +389,14 @@ fun AddOrEditPetBottomSheet(
                 }
             }
 
-            // Weight Selector
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                val displayedWeight = if (useLbs) "%.1f lbs".format(weightKg * 2.20462) else "%.1f kg".format(weightKg)
+                val displayedWeight = if (useLbs) "%.1f ${strings.useLbs}".format(weightKg * 2.20462) else "%.1f ${strings.useKg}".format(weightKg)
                 Column {
-                    Text("Weight", style = MaterialTheme.typography.labelMedium, color = OnSurfaceVariant)
+                    Text(strings.weightLabel, style = MaterialTheme.typography.labelMedium, color = OnSurfaceVariant)
                     Text(
                         text = displayedWeight,
                         style = MaterialTheme.typography.titleMedium,
@@ -410,7 +417,7 @@ fun AddOrEditPetBottomSheet(
                         shape = CircleShape
                     ) {
                         Text(
-                            text = if (useLbs) "Use kg" else "Use lbs",
+                            text = if (useLbs) strings.useKg else strings.useLbs,
                             style = MaterialTheme.typography.labelSmall,
                             color = Primary,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
@@ -420,7 +427,7 @@ fun AddOrEditPetBottomSheet(
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Coat & Pattern", style = MaterialTheme.typography.labelMedium, color = OnSurfaceVariant)
+                Text(strings.coatPatternLabel, style = MaterialTheme.typography.labelMedium, color = OnSurfaceVariant)
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -464,12 +471,12 @@ fun AddOrEditPetBottomSheet(
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (baselineSampleCaptured) "Acoustic Baseline Calibrated" else "Attach Baseline Voice Calibration",
+                            text = if (baselineSampleCaptured) strings.baselineCalibrated else strings.attachBaselineCalibration,
                             style = MaterialTheme.typography.titleSmall,
                             color = OnSurface
                         )
                         Text(
-                            text = "Tunes F0 formant range (380–480 Hz) for breed accuracy",
+                            text = strings.baselineCalibrationHint,
                             style = MaterialTheme.typography.bodySmall,
                             color = OnSurfaceVariant
                         )
@@ -519,7 +526,7 @@ fun AddOrEditPetBottomSheet(
             ) {
                 Icon(Icons.Filled.Check, contentDescription = null)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(if (isNew) "Save & Calibrate Cat" else "Save Changes")
+                Text(if (isNew) strings.saveCalibrateCat else strings.saveChanges)
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -569,11 +576,19 @@ private fun StepperBox(
 @Composable
 fun MeowProBottomSheet(
     isProMember: Boolean,
-    onActivateProPlaceholder: () -> Unit,
+    billingState: MyketBillingState,
+    onPurchaseSku: (String) -> Unit,
+    onRestorePurchases: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    var selectedPlan by remember { mutableStateOf("Lifetime") }
+    val strings = LocalMeowStrings.current
+    var selectedPlanSku by remember { mutableStateOf(MyketIabHelper.SKU_PRO_LIFETIME) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    val monthlyPriceText = billingState.skuPrices[MyketIabHelper.SKU_PRO_MONTHLY]
+        ?.takeIf { it.isNotBlank() } ?: strings.monthlyPlanPrice
+    val lifetimePriceText = billingState.skuPrices[MyketIabHelper.SKU_PRO_LIFETIME]
+        ?.takeIf { it.isNotBlank() } ?: strings.lifetimePlanPrice
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -583,6 +598,7 @@ fun MeowProBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -614,13 +630,13 @@ fun MeowProBottomSheet(
                     }
                     Column {
                         Text(
-                            text = "Meow Pro Bioacoustics",
+                            text = strings.proModalTitle,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.ExtraBold,
                             color = OnPrimaryFixed
                         )
                         Text(
-                            text = "Deepest feline vocal insight & multi-pet studio tools",
+                            text = strings.proModalSubtitle,
                             style = MaterialTheme.typography.bodySmall,
                             color = OnPrimaryContainer
                         )
@@ -629,10 +645,10 @@ fun MeowProBottomSheet(
             }
 
             listOf(
-                "Unlimited multi-cat profiles & custom vocal calibration",
-                "Continuous background meow monitoring mode",
-                "Full bioacoustic pitch (F0) & spectrogram export",
-                "Priority active-learning model personalization"
+                strings.proPerk1,
+                strings.proPerk2,
+                strings.proPerk3,
+                strings.proPerk4
             ).forEach { perk ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -657,29 +673,66 @@ fun MeowProBottomSheet(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 PlanCard(
-                    title = "Monthly",
-                    price = "$4.99/mo",
-                    badge = "Flexible",
-                    selected = selectedPlan == "Monthly",
-                    onClick = { selectedPlan = "Monthly" },
+                    title = strings.monthlyPlanTitle,
+                    price = monthlyPriceText,
+                    badge = strings.monthlyPlanBadge,
+                    selected = selectedPlanSku == MyketIabHelper.SKU_PRO_MONTHLY,
+                    onClick = { selectedPlanSku = MyketIabHelper.SKU_PRO_MONTHLY },
+                    tag = "pro_plan_monthly",
                     modifier = Modifier.weight(1f)
                 )
                 PlanCard(
-                    title = "Lifetime",
-                    price = "$29.99",
-                    badge = "Best Value",
-                    selected = selectedPlan == "Lifetime",
-                    onClick = { selectedPlan = "Lifetime" },
+                    title = strings.lifetimePlanTitle,
+                    price = lifetimePriceText,
+                    badge = strings.lifetimePlanBadge,
+                    selected = selectedPlanSku == MyketIabHelper.SKU_PRO_LIFETIME,
+                    onClick = { selectedPlanSku = MyketIabHelper.SKU_PRO_LIFETIME },
+                    tag = "pro_plan_lifetime",
                     modifier = Modifier.weight(1f)
                 )
             }
 
+            // Myket Billing Connection / Key Status Pill
+            Surface(
+                color = if (billingState.isBillingSupported && billingState.isPublicKeyConfigured) {
+                    ConfidenceEmeraldBg
+                } else {
+                    SurfaceContainerLow
+                },
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, OutlineVariant.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = if (billingState.isBillingSupported) Icons.Filled.Verified else Icons.Filled.Info,
+                        contentDescription = null,
+                        tint = if (billingState.isBillingSupported) ConfidenceEmerald else Primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = when {
+                            !billingState.isPublicKeyConfigured -> strings.myketMissingKeyHint
+                            billingState.isBillingSupported -> strings.myketReadyBadge
+                            else -> strings.myketNotReadyHint
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = OnSurfaceVariant
+                    )
+                }
+            }
+
             Button(
                 onClick = {
-                    // TODO: Connect Google Play Billing Library for real in-app purchase flow
-                    onActivateProPlaceholder()
-                    onDismiss()
+                    if (!isProMember) {
+                        onPurchaseSku(selectedPlanSku)
+                    }
                 },
+                enabled = !billingState.isBusy,
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = PrimaryContainer,
@@ -690,19 +743,54 @@ fun MeowProBottomSheet(
                     .minimumInteractiveComponentSize()
                     .testTag("meow_pro_upgrade_button")
             ) {
-                Text(
-                    if (isProMember) "Pro Mode Enabled (Preview)"
-                    else "Start $selectedPlan Plan (Billing Preview)"
-                )
+                if (billingState.isBusy) {
+                    CircularProgressIndicator(
+                        color = OnPrimary,
+                        strokeWidth = 2.5.dp,
+                        modifier = Modifier.size(18.dp)
+                    )
+                } else {
+                    Text(
+                        when {
+                            isProMember -> strings.proAlreadyActiveButton
+                            selectedPlanSku == MyketIabHelper.SKU_PRO_MONTHLY -> strings.buyWithMyketMonthly
+                            else -> strings.buyWithMyketLifetime
+                        }
+                    )
+                }
             }
 
-            OutlinedButton(
-                onClick = onDismiss,
-                shape = CircleShape,
-                border = BorderStroke(1.dp, OutlineVariant),
-                modifier = Modifier.fillMaxWidth().minimumInteractiveComponentSize()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("Maybe Later", color = OnSurfaceVariant)
+                OutlinedButton(
+                    onClick = onRestorePurchases,
+                    enabled = !billingState.isBusy,
+                    shape = CircleShape,
+                    border = BorderStroke(1.dp, OutlineVariant),
+                    modifier = Modifier
+                        .weight(1f)
+                        .minimumInteractiveComponentSize()
+                        .testTag("myket_restore_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = null,
+                        tint = Primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(strings.restoreMyketPurchases, color = Primary, maxLines = 1)
+                }
+                OutlinedButton(
+                    onClick = onDismiss,
+                    shape = CircleShape,
+                    border = BorderStroke(1.dp, OutlineVariant),
+                    modifier = Modifier.minimumInteractiveComponentSize()
+                ) {
+                    Text(strings.maybeLaterButton, color = OnSurfaceVariant)
+                }
             }
             Spacer(modifier = Modifier.height(8.dp))
         }
@@ -716,6 +804,7 @@ private fun PlanCard(
     badge: String,
     selected: Boolean,
     onClick: () -> Unit,
+    tag: String,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -723,7 +812,7 @@ private fun PlanCard(
         color = if (selected) PrimaryFixed else SurfaceContainerLowest,
         shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.5.dp, if (selected) PrimaryContainer else OutlineVariant),
-        modifier = modifier
+        modifier = modifier.testTag(tag)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -748,7 +837,7 @@ private fun PlanCard(
             )
             Text(
                 text = price,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.ExtraBold,
                 color = Primary
             )
@@ -758,58 +847,38 @@ private fun PlanCard(
 
 @Composable
 fun HowAiWorksDialog(onDismiss: () -> Unit) {
+    val strings = LocalMeowStrings.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("How Meow AI Works") },
+        title = { Text(strings.howAiWorksTitle) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "Meow runs a 100% on-device dual-branch bioacoustic engine trained on real feline vocalization datasets:",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    "1. Denoising DSP: Removes DC offset, applies a 70 Hz 2nd-order Butterworth high-pass filter, and trims silence.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = OnSurfaceVariant
-                )
-                Text(
-                    "2. Enhanced Bioacoustic Pipeline (74.6% Acc): Extracts 234 features including YIN pitch (F0), 20 MFCCs + deltas, chroma, spectral contrast, and temporal envelope.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = OnSurfaceVariant
-                )
-                Text(
-                    "3. Spectrogram CNN (76.2% Acc) & Hybrid Late Fusion (79.4% Acc): Blends 45% Bioacoustic + 55% 128-bin Mel Spectrogram CNN probabilities.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = OnSurfaceVariant
-                )
+                Text(strings.howAiDialogBody1, style = MaterialTheme.typography.bodyMedium)
+                Text(strings.howAiDialogBody2, style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+                Text(strings.howAiDialogBody3, style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+                Text(strings.howAiDialogBody4, style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Got it") }
+            TextButton(onClick = onDismiss) { Text(strings.gotItButton) }
         }
     )
 }
 
 @Composable
 fun PrivacyPolicyDialog(onDismiss: () -> Unit) {
+    val strings = LocalMeowStrings.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Privacy & Vocal Data Policy") },
+        title = { Text(strings.privacyPolicyTitle) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "All audio recording, signal denoising, and AI intent classification run locally on your device.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    "• Microphone access is only used when you press Record.\n• Pet profiles, translation history, and active-learning feedback are stored locally in your device Room database.\n• Exported CSV logs or shared translations are only sent when you explicitly tap Share or Export.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = OnSurfaceVariant
-                )
+                Text(strings.privacyDialogBody1, style = MaterialTheme.typography.bodyMedium)
+                Text(strings.privacyDialogBody2, style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+            TextButton(onClick = onDismiss) { Text(strings.closeButton) }
         }
     )
 }

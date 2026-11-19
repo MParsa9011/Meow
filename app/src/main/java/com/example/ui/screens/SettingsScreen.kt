@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Psychology
@@ -57,11 +58,13 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.data.model.AppLanguage
 import com.example.data.model.AppSettings
 import com.example.data.model.ModelEngineType
 import com.example.data.model.PetProfile
 import com.example.ui.components.CatAvatarImage
 import com.example.ui.theme.Error
+import com.example.ui.theme.LocalMeowStrings
 import com.example.ui.theme.OnPrimary
 import com.example.ui.theme.OnPrimaryContainer
 import com.example.ui.theme.OnPrimaryFixed
@@ -82,6 +85,7 @@ fun SettingsScreen(
     activePet: PetProfile?,
     settings: AppSettings,
     feedbackCount: Int,
+    onSelectLanguage: (AppLanguage) -> Unit,
     onSelectEngine: (ModelEngineType) -> Unit,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onSwitchPet: () -> Unit,
@@ -92,15 +96,14 @@ fun SettingsScreen(
     onOpenPrivacyPolicy: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalMeowStrings.current
     var showClearConfirm by remember { mutableStateOf(false) }
 
     if (showClearConfirm) {
         AlertDialog(
             onDismissRequest = { showClearConfirm = false },
-            title = { Text("Clear History & Audio Cache?") },
-            text = {
-                Text("This removes saved meow translations, active-learning logs, and local audio recordings.")
-            },
+            title = { Text(strings.clearDialogTitle) },
+            text = { Text(strings.clearDialogBody) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -109,12 +112,12 @@ fun SettingsScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Error)
                 ) {
-                    Text("Clear All")
+                    Text(strings.clearAllButton)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearConfirm = false }) {
-                    Text("Cancel")
+                    Text(strings.cancelButton)
                 }
             }
         )
@@ -149,13 +152,13 @@ fun SettingsScreen(
                         CatAvatarImage(pet = activePet, size = 46.dp)
                         Column {
                             Text(
-                                text = "Calibrated for ${activePet?.name ?: "Lucy"}",
+                                text = "${strings.calibratedForPrefix}${activePet?.name ?: "Lucy"}",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = OnSurface
                             )
                             Text(
-                                text = "${activePet?.breed ?: "Ginger Tabby"} • ${activePet?.baselinePitchHz ?: 420} Hz baseline",
+                                text = "${activePet?.breed ?: "Ginger Tabby"} • ${activePet?.baselinePitchHz ?: 420}${strings.hzBaselineSuffix}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = OnSurfaceVariant
                             )
@@ -175,7 +178,61 @@ fun SettingsScreen(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Switch", color = Primary)
+                        Text(strings.switchButton, color = Primary)
+                    }
+                }
+            }
+        }
+
+        // Bilingual Language Selector Card
+        item {
+            Surface(
+                color = SurfaceContainerLowest,
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, OutlineVariant.copy(alpha = 0.35f)),
+                modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SectionHeader(
+                        icon = Icons.Filled.Language,
+                        title = strings.appLanguageTitle
+                    )
+                    Text(
+                        text = strings.appLanguageSubtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = OnSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        AppLanguage.entries.forEach { lang ->
+                            val picked = settings.language == lang
+                            Surface(
+                                onClick = { onSelectLanguage(lang) },
+                                color = if (picked) PrimaryContainer else SurfaceContainerLow,
+                                shape = CircleShape,
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (picked) PrimaryContainer else OutlineVariant
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .minimumInteractiveComponentSize()
+                                    .testTag("settings_lang_${lang.code}")
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = lang.displayName,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = if (picked) OnPrimary else OnSurface
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -195,11 +252,11 @@ fun SettingsScreen(
                 ) {
                     SectionHeader(
                         icon = Icons.Filled.Psychology,
-                        title = "AI Translation & Audio Engine"
+                        title = strings.aiEngineSectionTitle
                     )
 
                     Text(
-                        text = "Inference Architecture",
+                        text = strings.inferenceArchitectureLabel,
                         style = MaterialTheme.typography.labelMedium,
                         color = OnSurfaceVariant
                     )
@@ -233,7 +290,7 @@ fun SettingsScreen(
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
                                             Text(
-                                                text = engine.displayName,
+                                                text = strings.engineName(engine),
                                                 style = MaterialTheme.typography.titleSmall,
                                                 fontWeight = FontWeight.Bold,
                                                 color = if (selected) OnPrimaryFixed else OnSurface
@@ -243,7 +300,7 @@ fun SettingsScreen(
                                                 shape = CircleShape
                                             ) {
                                                 Text(
-                                                    text = engine.accuracyLabel,
+                                                    text = strings.engineAccuracy(engine),
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = if (selected) OnPrimary else OnSurfaceVariant,
                                                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
@@ -251,7 +308,7 @@ fun SettingsScreen(
                                             }
                                         }
                                         Text(
-                                            text = engine.subtitle,
+                                            text = strings.engineSubtitle(engine),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = if (selected) OnPrimaryContainer else OnSurfaceVariant
                                         )
@@ -272,7 +329,7 @@ fun SettingsScreen(
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "Vocal Sensitivity Level",
+                            text = strings.sensitivityLevelLabel,
                             style = MaterialTheme.typography.labelMedium,
                             color = OnSurfaceVariant
                         )
@@ -280,20 +337,24 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            listOf("Low", "Medium", "High").forEach { level ->
-                                val picked = settings.sensitivityLevel == level
+                            listOf(
+                                "Low" to strings.sensLow,
+                                "Medium" to strings.sensMedium,
+                                "High" to strings.sensHigh
+                            ).forEach { (levelKey, levelLabel) ->
+                                val picked = settings.sensitivityLevel == levelKey
                                 Surface(
-                                    onClick = { onUpdateSettings { it.copy(sensitivityLevel = level) } },
+                                    onClick = { onUpdateSettings { it.copy(sensitivityLevel = levelKey) } },
                                     color = if (picked) PrimaryContainer else SurfaceContainerLow,
                                     shape = CircleShape,
                                     modifier = Modifier
                                         .weight(1f)
                                         .minimumInteractiveComponentSize()
-                                        .testTag("sensitivity_$level")
+                                        .testTag("sensitivity_$levelKey")
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Text(
-                                            text = level,
+                                            text = levelLabel,
                                             style = MaterialTheme.typography.labelLarge,
                                             color = if (picked) OnPrimary else OnSurfaceVariant
                                         )
@@ -305,7 +366,7 @@ fun SettingsScreen(
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "Audio Sample Quality",
+                            text = strings.audioSampleQualityLabel,
                             style = MaterialTheme.typography.labelMedium,
                             color = OnSurfaceVariant
                         )
@@ -313,10 +374,13 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            listOf("Studio HD", "Balanced 16kHz").forEach { q ->
-                                val picked = settings.audioQuality == q
+                            listOf(
+                                "Studio HD" to strings.qualityHd,
+                                "Balanced 16kHz" to strings.qualityBalanced
+                            ).forEach { (qKey, qLabel) ->
+                                val picked = settings.audioQuality == qKey
                                 Surface(
-                                    onClick = { onUpdateSettings { it.copy(audioQuality = q) } },
+                                    onClick = { onUpdateSettings { it.copy(audioQuality = qKey) } },
                                     color = if (picked) PrimaryContainer else SurfaceContainerLow,
                                     shape = CircleShape,
                                     modifier = Modifier
@@ -325,7 +389,7 @@ fun SettingsScreen(
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Text(
-                                            text = q,
+                                            text = qLabel,
                                             style = MaterialTheme.typography.labelMedium,
                                             color = if (picked) OnPrimary else OnSurfaceVariant
                                         )
@@ -336,26 +400,26 @@ fun SettingsScreen(
                     }
 
                     SettingsToggleRow(
-                        title = "70 Hz Noise Filter & Silence Trim",
-                        subtitle = "2nd-order Butterworth high-pass filter before analysis",
+                        title = strings.noiseFilterTitle,
+                        subtitle = strings.noiseFilterSubtitle,
                         checked = settings.noiseFilterEnabled,
                         onCheckedChange = { v -> onUpdateSettings { it.copy(noiseFilterEnabled = v) } }
                     )
                     SettingsToggleRow(
-                        title = "Auto-Save Translated Meows",
-                        subtitle = "Automatically archive confident translations into History",
+                        title = strings.autoSaveTitle,
+                        subtitle = strings.autoSaveSubtitle,
                         checked = settings.autoRecordMeows,
                         onCheckedChange = { v -> onUpdateSettings { it.copy(autoRecordMeows = v) } }
                     )
                     SettingsToggleRow(
-                        title = "Continuous Audio Detection",
-                        subtitle = "Keep acoustic readiness active while on Translator",
+                        title = strings.continuousDetectionTitle,
+                        subtitle = strings.continuousDetectionSubtitle,
                         checked = settings.continuousDetection,
                         onCheckedChange = { v -> onUpdateSettings { it.copy(continuousDetection = v) } }
                     )
                     SettingsToggleRow(
-                        title = "Bilingual Persian Subtitles",
-                        subtitle = "Display Persian intent labels & care guidance (فارسی)",
+                        title = strings.bilingualSubtitlesTitle,
+                        subtitle = strings.bilingualSubtitlesSubtitle,
                         checked = settings.showPersianSubtitles,
                         onCheckedChange = { v -> onUpdateSettings { it.copy(showPersianSubtitles = v) } }
                     )
@@ -377,23 +441,23 @@ fun SettingsScreen(
                 ) {
                     SectionHeader(
                         icon = Icons.Filled.NotificationsActive,
-                        title = "Notifications & Alerts"
+                        title = strings.notificationsTitle
                     )
                     SettingsToggleRow(
-                        title = "Instant Meow Alerts",
-                        subtitle = "Alert when high-urgency distress or hunger meows occur",
+                        title = strings.instantAlertsTitle,
+                        subtitle = strings.instantAlertsSubtitle,
                         checked = settings.instantMeowAlerts,
                         onCheckedChange = { v -> onUpdateSettings { it.copy(instantMeowAlerts = v) } }
                     )
                     SettingsToggleRow(
-                        title = "Daily Behavior Summary",
-                        subtitle = "Evening digest of vocalization trends",
+                        title = strings.dailySummaryTitle,
+                        subtitle = strings.dailySummarySubtitle,
                         checked = settings.dailyBehaviorSummary,
                         onCheckedChange = { v -> onUpdateSettings { it.copy(dailyBehaviorSummary = v) } }
                     )
                     SettingsToggleRow(
-                        title = "Feeding Reminder Sync",
-                        subtitle = "Highlight recurring food-request meows around mealtime",
+                        title = strings.feedingSyncTitle,
+                        subtitle = strings.feedingSyncSubtitle,
                         checked = settings.feedingReminderSync,
                         onCheckedChange = { v -> onUpdateSettings { it.copy(feedingReminderSync = v) } }
                     )
@@ -415,11 +479,11 @@ fun SettingsScreen(
                 ) {
                     SectionHeader(
                         icon = Icons.Filled.GraphicEq,
-                        title = "Data & Storage"
+                        title = strings.dataStorageTitle
                     )
                     SettingsToggleRow(
-                        title = "Save Audio Recordings Locally",
-                        subtitle = "Store recorded WAV clips on-device for playback",
+                        title = strings.saveAudioLocallyTitle,
+                        subtitle = strings.saveAudioLocallySubtitle,
                         checked = settings.saveAudioLocally,
                         onCheckedChange = { v -> onUpdateSettings { it.copy(saveAudioLocally = v) } }
                     )
@@ -428,15 +492,15 @@ fun SettingsScreen(
 
                     SettingsActionRow(
                         icon = Icons.Filled.CloudDownload,
-                        title = "Export Translation History (CSV)",
-                        subtitle = "Share structured log with vet or trainer",
+                        title = strings.exportCsvTitle,
+                        subtitle = strings.exportCsvSubtitle,
                         onClick = onExportHistory,
                         tag = "export_history_button"
                     )
                     SettingsActionRow(
                         icon = Icons.Filled.DeleteSweep,
-                        title = "Clear Cache & History",
-                        subtitle = "Delete saved logs & local cached WAV recordings",
+                        title = strings.clearCacheTitle,
+                        subtitle = strings.clearCacheSubtitle,
                         isDestructive = true,
                         onClick = { showClearConfirm = true },
                         tag = "clear_history_button"
@@ -483,13 +547,13 @@ fun SettingsScreen(
                         }
                         Column {
                             Text(
-                                text = if (settings.isProMember) "Meow Pro Active" else "Upgrade to Meow Pro",
+                                text = if (settings.isProMember) strings.proActiveTitle else strings.upgradeProTitle,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = OnPrimaryFixed
                             )
                             Text(
-                                text = "Unlimited multi-cat profiles, breed calibration & lossless logs",
+                                text = strings.proCardSubtitle,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = OnPrimaryContainer
                             )
@@ -497,7 +561,7 @@ fun SettingsScreen(
                     }
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "Open Meow Pro",
+                        contentDescription = null,
                         tint = OnPrimaryFixed
                     )
                 }
@@ -518,25 +582,25 @@ fun SettingsScreen(
                 ) {
                     SectionHeader(
                         icon = Icons.Filled.Info,
-                        title = "Support & About"
+                        title = strings.supportAboutTitle
                     )
                     SettingsActionRow(
                         icon = Icons.Filled.Psychology,
-                        title = "How Meow AI Works",
-                        subtitle = "Hybrid Late Fusion, 234 bioacoustic features & Mel-CNN",
+                        title = strings.howAiWorksTitle,
+                        subtitle = strings.howAiWorksSubtitle,
                         onClick = onOpenHowAiWorks,
                         tag = "how_ai_works_button"
                     )
                     SettingsActionRow(
                         icon = Icons.Filled.PrivacyTip,
-                        title = "Privacy & Vocal Data Policy",
-                        subtitle = "100% on-device DSP inference • $feedbackCount active-learning logs",
+                        title = strings.privacyPolicyTitle,
+                        subtitle = strings.privacyPolicySubtitleFormat.format(feedbackCount),
                         onClick = onOpenPrivacyPolicy,
                         tag = "privacy_policy_button"
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Meow v2.4.1 • Bioacoustic On-Device Engine",
+                        text = strings.versionFooter,
                         style = MaterialTheme.typography.labelSmall,
                         color = OnSurfaceVariant,
                         modifier = Modifier.align(Alignment.CenterHorizontally)

@@ -8,7 +8,6 @@ import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,12 +60,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.data.model.AppLanguage
 import com.example.data.model.PetProfile
 import com.example.data.model.TranslationRecord
 import com.example.ui.components.CatAvatarImage
 import com.example.ui.theme.AffectionCoral
 import com.example.ui.theme.DistressPeriwinkle
 import com.example.ui.theme.FoodAmber
+import com.example.ui.theme.LocalMeowStrings
 import com.example.ui.theme.OnPrimary
 import com.example.ui.theme.OnPrimaryFixed
 import com.example.ui.theme.OnSurface
@@ -79,8 +80,6 @@ import com.example.ui.theme.SurfaceContainer
 import com.example.ui.theme.SurfaceContainerHigh
 import com.example.ui.theme.SurfaceContainerLow
 import com.example.ui.theme.SurfaceContainerLowest
-import com.example.ui.theme.Tertiary
-import com.example.ui.theme.TertiaryFixed
 
 @Composable
 fun ProfileScreen(
@@ -93,6 +92,8 @@ fun ProfileScreen(
     onShowToast: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalMeowStrings.current
+    val isFa = strings.language == AppLanguage.FA
     val context = LocalContext.current
     val pet = activePet ?: return
 
@@ -146,7 +147,7 @@ fun ProfileScreen(
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Filled.CameraAlt,
-                                    contentDescription = "Change cat portrait",
+                                    contentDescription = "Photo",
                                     tint = OnPrimary,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -173,7 +174,7 @@ fun ProfileScreen(
                                 shape = CircleShape
                             ) {
                                 Text(
-                                    text = "Primary Cat",
+                                    text = strings.primaryCatBadge,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = OnPrimaryFixed,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -214,7 +215,7 @@ fun ProfileScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Edit Profile")
+                            Text(strings.editProfile)
                         }
                         OutlinedButton(
                             onClick = onSwitchPet,
@@ -232,14 +233,13 @@ fun ProfileScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Switch Pet", color = Primary)
+                            Text(strings.switchPet, color = Primary)
                         }
                     }
                 }
             }
         }
 
-        // Voice Calibration & Acoustic Fingerprint Bento
         item {
             Surface(
                 color = SurfaceContainerLow,
@@ -266,7 +266,7 @@ fun ProfileScreen(
                                 tint = Primary
                             )
                             Text(
-                                text = "Voice Calibration & Acoustic ID",
+                                text = strings.voiceCalibrationTitle,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = OnSurface
@@ -312,12 +312,12 @@ fun ProfileScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         AcousticBentoTile(
-                            label = "Samples Analyzed",
-                            value = "${pet.samplesAnalyzed} clips",
+                            label = strings.samplesAnalyzedLabel,
+                            value = "${pet.samplesAnalyzed} ${strings.clipsUnit}",
                             modifier = Modifier.weight(1f)
                         )
                         AcousticBentoTile(
-                            label = "Baseline Pitch (F0)",
+                            label = strings.baselinePitchLabel,
                             value = "${pet.baselinePitchHz} Hz",
                             modifier = Modifier.weight(1f)
                         )
@@ -328,12 +328,12 @@ fun ProfileScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         AcousticBentoTile(
-                            label = "Vocal Cadence",
+                            label = strings.vocalCadenceLabel,
                             value = pet.vocalCadence,
                             modifier = Modifier.weight(1f)
                         )
                         AcousticBentoTile(
-                            label = "Dominant Mood",
+                            label = strings.dominantMoodLabel,
                             value = pet.dominantMood,
                             modifier = Modifier.weight(1f)
                         )
@@ -342,7 +342,6 @@ fun ProfileScreen(
             }
         }
 
-        // Weekly Vocal Trends
         item {
             Surface(
                 color = SurfaceContainerLowest,
@@ -355,7 +354,7 @@ fun ProfileScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Weekly Vocal Trends",
+                        text = strings.weeklyVocalTrends,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = OnSurface
@@ -395,15 +394,14 @@ fun ProfileScreen(
                     }
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TrendLegendRow("Food & Treat Requests", "$foodPct%", FoodAmber)
-                        TrendLegendRow("Affection & Brushing", "$brushPct%", AffectionCoral)
-                        TrendLegendRow("Calling / Care Alerts", "$carePct%", DistressPeriwinkle)
+                        TrendLegendRow(strings.trendFood, "$foodPct%", FoodAmber)
+                        TrendLegendRow(strings.trendAffection, "$brushPct%", AffectionCoral)
+                        TrendLegendRow(strings.trendCare, "$carePct%", DistressPeriwinkle)
                     }
                 }
             }
         }
 
-        // Pet Bio & Health
         item {
             Surface(
                 color = SurfaceContainerLowest,
@@ -416,7 +414,7 @@ fun ProfileScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Pet Bio & Health",
+                        text = strings.petBioHealth,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = OnSurface
@@ -424,13 +422,13 @@ fun ProfileScreen(
 
                     BioInfoRow(
                         icon = Icons.Filled.MonitorWeight,
-                        label = "Current Weight",
-                        value = "${pet.weightKg} kg"
+                        label = strings.currentWeightLabel,
+                        value = "${pet.weightKg} ${strings.useKg}"
                     )
                     HorizontalDivider(color = OutlineVariant.copy(alpha = 0.3f))
                     BioInfoRow(
                         icon = Icons.Filled.Cake,
-                        label = "Birthday",
+                        label = strings.birthdayLabel,
                         value = pet.birthday
                     )
                     HorizontalDivider(color = OutlineVariant.copy(alpha = 0.3f))
@@ -441,7 +439,7 @@ fun ProfileScreen(
                     ) {
                         BioInfoRow(
                             icon = Icons.Filled.QrCode2,
-                            label = "Microchip ID",
+                            label = strings.microchipIdLabel,
                             value = pet.microchipId,
                             modifier = Modifier.weight(1f)
                         )
@@ -449,7 +447,10 @@ fun ProfileScreen(
                             onClick = {
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                 clipboard.setPrimaryClip(ClipData.newPlainText("Microchip ID", pet.microchipId))
-                                onShowToast("Copied microchip ID ${pet.microchipId}")
+                                onShowToast(
+                                    if (isFa) "شناسه میکروچیپ کپی شد: ${pet.microchipId}"
+                                    else "Copied microchip ID ${pet.microchipId}"
+                                )
                             },
                             modifier = Modifier
                                 .minimumInteractiveComponentSize()
@@ -457,7 +458,7 @@ fun ProfileScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.ContentCopy,
-                                contentDescription = "Copy microchip ID",
+                                contentDescription = strings.microchipIdLabel,
                                 tint = Primary,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -471,7 +472,7 @@ fun ProfileScreen(
                     ) {
                         BioInfoRow(
                             icon = Icons.Filled.LocalHospital,
-                            label = "Primary Veterinarian",
+                            label = strings.primaryVetLabel,
                             value = "${pet.vetName} • ${pet.vetClinic}",
                             modifier = Modifier.weight(1f)
                         )
@@ -486,7 +487,7 @@ fun ProfileScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Phone,
-                                contentDescription = "Call veterinarian",
+                                contentDescription = strings.primaryVetLabel,
                                 tint = Primary,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -514,7 +515,7 @@ fun ProfileScreen(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Add Another Pet Profile",
+                    text = strings.addAnotherPet,
                     style = MaterialTheme.typography.labelLarge,
                     color = Primary
                 )

@@ -34,7 +34,6 @@ import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.outlined.GraphicEq
@@ -68,6 +67,7 @@ import com.example.R
 import com.example.data.model.PetProfile
 import com.example.ui.theme.InverseOnSurface
 import com.example.ui.theme.InverseSurface
+import com.example.ui.theme.LocalMeowStrings
 import com.example.ui.theme.OnPrimary
 import com.example.ui.theme.OnSurface
 import com.example.ui.theme.OnSurfaceVariant
@@ -76,19 +76,19 @@ import com.example.ui.theme.Primary
 import com.example.ui.theme.PrimaryContainer
 import com.example.ui.theme.PrimaryFixed
 import com.example.ui.theme.Surface
+import com.example.ui.theme.SurfaceContainer
 import com.example.ui.theme.SurfaceContainerHigh
 import com.example.ui.theme.SurfaceContainerLow
 
 enum class MeowTab(
     val route: String,
-    val label: String,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector
 ) {
-    TRANSLATE("translate", "Translate", Icons.Filled.GraphicEq, Icons.Outlined.GraphicEq),
-    HISTORY("history", "History", Icons.Filled.History, Icons.Outlined.History),
-    PROFILE("profile", "Profile", Icons.Filled.Person, Icons.Outlined.Person),
-    SETTINGS("settings", "Settings", Icons.Filled.Settings, Icons.Outlined.Tune)
+    TRANSLATE("translate", Icons.Filled.GraphicEq, Icons.Outlined.GraphicEq),
+    HISTORY("history", Icons.Filled.History, Icons.Outlined.History),
+    PROFILE("profile", Icons.Filled.Person, Icons.Outlined.Person),
+    SETTINGS("settings", Icons.Filled.Settings, Icons.Outlined.Tune)
 }
 
 @Composable
@@ -131,10 +131,12 @@ fun MeowTopBar(
     subtitle: String,
     activePet: PetProfile?,
     isPro: Boolean,
+    onToggleLanguage: () -> Unit,
     onSettingsClick: () -> Unit,
     onProfileClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalMeowStrings.current
     Surface(
         color = Surface.copy(alpha = 0.94f),
         shadowElevation = 2.dp,
@@ -152,42 +154,65 @@ fun MeowTopBar(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.weight(1f)
             ) {
                 Box(
                     modifier = Modifier
                         .size(40.dp)
                         .shadow(4.dp, CircleShape, ambientColor = PrimaryContainer, spotColor = PrimaryContainer)
                         .clip(CircleShape)
-                        .background(SurfaceContainerLow),
+                        .background(Color.White),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Pets,
-                        contentDescription = "Meow Logo",
-                        tint = PrimaryContainer,
-                        modifier = Modifier.size(22.dp)
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_meow_logo),
+                        contentDescription = strings.appName,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
                     )
                 }
                 Column {
                     Text(
-                        text = "Meow",
+                        text = strings.appName,
                         style = MaterialTheme.typography.headlineMedium,
                         color = OnSurface,
-                        fontWeight = FontWeight.ExtraBold
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.labelSmall,
-                        color = OnSurfaceVariant
+                        color = OnSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                Surface(
+                    onClick = onToggleLanguage,
+                    color = SurfaceContainer,
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("top_language_toggle_button")
+                ) {
+                    Text(
+                        text = strings.languageShortToggle,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Primary,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+
                 IconButton(
                     onClick = onSettingsClick,
                     modifier = Modifier
@@ -196,7 +221,7 @@ fun MeowTopBar(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Notifications,
-                        contentDescription = "Alerts & Settings",
+                        contentDescription = strings.navSettings,
                         tint = OnSurfaceVariant
                     )
                 }
@@ -228,7 +253,7 @@ fun MeowTopBar(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.WorkspacePremium,
-                                contentDescription = "Pro Member",
+                                contentDescription = strings.proActiveTitle,
                                 tint = OnPrimary,
                                 modifier = Modifier.size(10.dp)
                             )
@@ -246,6 +271,7 @@ fun MeowBottomBar(
     onNavigate: (MeowTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalMeowStrings.current
     Surface(
         color = Surface.copy(alpha = 0.96f),
         shadowElevation = 10.dp,
@@ -270,6 +296,12 @@ fun MeowBottomBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 MeowTab.entries.forEach { tab ->
+                    val label = when (tab) {
+                        MeowTab.TRANSLATE -> strings.navTranslate
+                        MeowTab.HISTORY -> strings.navHistory
+                        MeowTab.PROFILE -> strings.navProfile
+                        MeowTab.SETTINGS -> strings.navSettings
+                    }
                     val selected = currentRoute == tab.route
                     Column(
                         modifier = Modifier
@@ -293,13 +325,13 @@ fun MeowBottomBar(
                         ) {
                             Icon(
                                 imageVector = if (selected) tab.selectedIcon else tab.unselectedIcon,
-                                contentDescription = tab.label,
+                                contentDescription = label,
                                 tint = if (selected) Primary else OnSurfaceVariant,
                                 modifier = Modifier.size(21.dp)
                             )
                         }
                         Text(
-                            text = tab.label,
+                            text = label,
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontSize = 11.sp,
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold

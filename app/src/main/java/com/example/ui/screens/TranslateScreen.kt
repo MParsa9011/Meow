@@ -9,8 +9,8 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -41,7 +41,6 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Share
@@ -76,14 +75,16 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.data.model.AppLanguage
 import com.example.data.model.AppSettings
 import com.example.data.model.BundledSample
 import com.example.data.model.IntentCode
@@ -101,6 +102,7 @@ import com.example.ui.theme.DistressPeriwinkleContainer
 import com.example.ui.theme.FoodAmber
 import com.example.ui.theme.FoodAmberContainer
 import com.example.ui.theme.LiveRecordingCrimson
+import com.example.ui.theme.LocalMeowStrings
 import com.example.ui.theme.OnPrimary
 import com.example.ui.theme.OnPrimaryContainer
 import com.example.ui.theme.OnPrimaryFixed
@@ -110,7 +112,6 @@ import com.example.ui.theme.OutlineVariant
 import com.example.ui.theme.Primary
 import com.example.ui.theme.PrimaryContainer
 import com.example.ui.theme.PrimaryFixed
-import com.example.ui.theme.PrimaryFixedDim
 import com.example.ui.theme.SecondaryFixed
 import com.example.ui.theme.SurfaceContainer
 import com.example.ui.theme.SurfaceContainerHigh
@@ -142,6 +143,8 @@ fun TranslateScreen(
     onOpenModelSelector: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalMeowStrings.current
+    val isFa = strings.language == AppLanguage.FA
     var feedbackVerdict by remember(uiState.analysisResult) { mutableStateOf<String?>(null) }
     var correctedIntent by remember(uiState.analysisResult) { mutableStateOf<IntentCode?>(null) }
 
@@ -201,7 +204,7 @@ fun TranslateScreen(
                                 modifier = Modifier.size(20.dp)
                             )
                             Text(
-                                text = stringResource(R.string.ai_voice_analysis),
+                                text = strings.aiVoiceAnalysis,
                                 style = MaterialTheme.typography.titleLarge,
                                 color = OnSurface
                             )
@@ -211,7 +214,7 @@ fun TranslateScreen(
                             shape = CircleShape
                         ) {
                             Text(
-                                text = "${analysis.confidence}% Confident",
+                                text = "${analysis.confidence}${strings.confidentSuffix}",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = ConfidenceEmerald,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
@@ -222,8 +225,9 @@ fun TranslateScreen(
                     analysis.matches.forEach { match ->
                         IntentMatchAccordionCard(
                             match = match,
+                            isFa = isFa,
                             isExpanded = uiState.expandedMatchRank == match.rank,
-                            showPersian = settings.showPersianSubtitles,
+                            showSecondarySubtitles = settings.showPersianSubtitles,
                             isPlayingCatResponse = playingAudioId == "cat_resp_${match.rank}",
                             isPlayingRecording = playingAudioId == "rec_clip_${match.rank}",
                             hasRecordingAudio = analysis.audioFilePath != null || analysis.sampleAssetName != null,
@@ -285,6 +289,7 @@ private fun ActivePetStatusCard(
     onSwitchClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalMeowStrings.current
     Surface(
         color = SurfaceContainerLow,
         shape = RoundedCornerShape(24.dp),
@@ -322,7 +327,7 @@ private fun ActivePetStatusCard(
                                 shape = CircleShape
                             ) {
                                 Text(
-                                    text = "Active",
+                                    text = strings.activeBadge,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = OnPrimaryFixed,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
@@ -356,7 +361,7 @@ private fun ActivePetStatusCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Switch",
+                        text = strings.switchButton,
                         style = MaterialTheme.typography.labelLarge,
                         color = Primary
                     )
@@ -369,7 +374,7 @@ private fun ActivePetStatusCard(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Acoustic Profile Calibration",
+                        text = strings.acousticCalibrationLabel,
                         style = MaterialTheme.typography.labelMedium,
                         color = OnSurfaceVariant
                     )
@@ -408,6 +413,7 @@ private fun VoiceRecordingHub(
     onOpenModelSelector: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalMeowStrings.current
     val isRecording = uiState.phase == RecordingPhase.RECORDING
     val isAnalyzing = uiState.phase == RecordingPhase.ANALYZING
 
@@ -433,6 +439,13 @@ private fun VoiceRecordingHub(
         else -> liveAmplitudes
     }
 
+    val localizedPhaseStatus = when (uiState.phase) {
+        RecordingPhase.IDLE -> strings.readyToListen
+        RecordingPhase.RECORDING -> strings.listeningForMeow
+        RecordingPhase.ANALYZING -> strings.analyzingFrequency
+        RecordingPhase.COMPLETE -> strings.analysisComplete
+    }
+
     Surface(
         color = SurfaceContainerLowest,
         shape = RoundedCornerShape(28.dp),
@@ -452,7 +465,8 @@ private fun VoiceRecordingHub(
             ) {
                 Surface(
                     color = if (isRecording) LiveRecordingCrimson.copy(alpha = 0.14f) else SurfaceContainer,
-                    shape = CircleShape
+                    shape = CircleShape,
+                    modifier = Modifier.weight(1f, fill = false)
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
@@ -468,7 +482,7 @@ private fun VoiceRecordingHub(
                                 )
                         )
                         Text(
-                            text = uiState.statusText,
+                            text = localizedPhaseStatus,
                             style = MaterialTheme.typography.labelMedium,
                             color = if (isRecording) LiveRecordingCrimson else OnSurfaceVariant,
                             maxLines = 1,
@@ -476,6 +490,8 @@ private fun VoiceRecordingHub(
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.width(8.dp))
 
                 Surface(
                     color = TertiaryFixed,
@@ -486,11 +502,7 @@ private fun VoiceRecordingHub(
                         .testTag("home_model_chip")
                 ) {
                     Text(
-                        text = when (settings.modelEngine.id) {
-                            "hybrid" -> "Hybrid AI • 79.4%"
-                            "acoustic" -> "Bioacoustic • 74.6%"
-                            else -> "Mel CNN • 76.2%"
-                        },
+                        text = strings.engineShortChip(settings.modelEngine),
                         style = MaterialTheme.typography.labelSmall,
                         color = Tertiary,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
@@ -498,7 +510,6 @@ private fun VoiceRecordingHub(
                 }
             }
 
-            // Live Waveform Visualizer
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -532,7 +543,6 @@ private fun VoiceRecordingHub(
                 }
             }
 
-            // Record Button with Pulsing Ring
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.size(116.dp)
@@ -567,7 +577,7 @@ private fun VoiceRecordingHub(
                         } else {
                             Icon(
                                 imageVector = if (isRecording) Icons.Filled.Stop else Icons.Filled.Mic,
-                                contentDescription = if (isRecording) "Stop recording" else "Record cat meow",
+                                contentDescription = if (isRecording) strings.listeningTapStop else strings.tapToRecord,
                                 tint = OnPrimary,
                                 modifier = Modifier.size(34.dp)
                             )
@@ -582,24 +592,23 @@ private fun VoiceRecordingHub(
             ) {
                 Text(
                     text = when {
-                        isRecording -> "Listening... Tap stop to translate"
-                        isAnalyzing -> "Extracting 234 bioacoustic & Mel-CNN features..."
-                        !hasMicPermission -> "Tap microphone to grant access & record"
-                        else -> stringResource(R.string.tap_to_record)
+                        isRecording -> strings.listeningTapStop
+                        isAnalyzing -> strings.extractingFeatures
+                        !hasMicPermission -> strings.grantMicPrompt
+                        else -> strings.tapToRecord
                     },
                     style = MaterialTheme.typography.titleMedium,
                     color = OnSurface,
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = stringResource(R.string.recording_distance_hint),
+                    text = strings.recordingDistanceHint,
                     style = MaterialTheme.typography.bodySmall,
                     color = OnSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
             }
 
-            // Upload Audio Button
             OutlinedButton(
                 onClick = onUploadAudio,
                 enabled = !isRecording && !isAnalyzing,
@@ -618,19 +627,18 @@ private fun VoiceRecordingHub(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = stringResource(R.string.upload_audio),
+                    text = strings.uploadAudio,
                     style = MaterialTheme.typography.labelLarge,
                     color = Primary
                 )
             }
 
-            // Real Dataset Sample Quick-Test Strip
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Or test with real cat vocalization samples",
+                    text = strings.testDatasetSamples,
                     style = MaterialTheme.typography.labelMedium,
                     color = OnSurfaceVariant
                 )
@@ -667,7 +675,7 @@ private fun VoiceRecordingHub(
                                     modifier = Modifier.size(15.dp)
                                 )
                                 Text(
-                                    text = sample.shortLabel,
+                                    text = strings.sampleShortLabel(sample.id, sample.shortLabel),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = if (selected) OnPrimaryFixed else OnSurfaceVariant
                                 )
@@ -683,8 +691,9 @@ private fun VoiceRecordingHub(
 @Composable
 private fun IntentMatchAccordionCard(
     match: IntentMatch,
+    isFa: Boolean,
     isExpanded: Boolean,
-    showPersian: Boolean,
+    showSecondarySubtitles: Boolean,
     isPlayingCatResponse: Boolean,
     isPlayingRecording: Boolean,
     hasRecordingAudio: Boolean,
@@ -695,6 +704,7 @@ private fun IntentMatchAccordionCard(
     onToggleBookmark: () -> Unit,
     onShare: () -> Unit
 ) {
+    val strings = LocalMeowStrings.current
     val (accentColor, containerColor, iconVector) = when (match.intentCode) {
         IntentCode.FOOD -> Triple(FoodAmber, FoodAmberContainer, Icons.Filled.Restaurant)
         IntentCode.BRUSHING -> Triple(AffectionCoral, AffectionCoralContainer, Icons.Filled.Favorite)
@@ -702,6 +712,10 @@ private fun IntentMatchAccordionCard(
     }
 
     val isTop = match.rank == 1
+    val primaryTitle = if (isFa) match.titleFa else match.title
+    val secondaryTitle = if (isFa) match.title else match.titleFa
+    val primaryDesc = if (isFa) match.descriptionFa else match.description
+    val secondaryDesc = if (isFa) match.description else match.careTipFa
 
     Surface(
         color = if (isTop) SurfaceContainerLowest else SurfaceContainerLow,
@@ -733,7 +747,7 @@ private fun IntentMatchAccordionCard(
                 ) {
                     Icon(
                         imageVector = iconVector,
-                        contentDescription = match.title,
+                        contentDescription = primaryTitle,
                         tint = accentColor,
                         modifier = Modifier.size(24.dp)
                     )
@@ -752,7 +766,7 @@ private fun IntentMatchAccordionCard(
                             shape = CircleShape
                         ) {
                             Text(
-                                text = match.badge,
+                                text = strings.intentBadge(match.rank),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (isTop) OnPrimaryFixed else OnSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
@@ -766,16 +780,16 @@ private fun IntentMatchAccordionCard(
                         )
                     }
                     Text(
-                        text = match.title,
+                        text = primaryTitle,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = OnSurface
                     )
-                    if (showPersian) {
+                    if (showSecondarySubtitles) {
                         Text(
-                            text = match.titleFa,
+                            text = secondaryTitle,
                             style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = VazirmatnFamily,
+                                fontFamily = if (isFa) MaterialTheme.typography.bodySmall.fontFamily else VazirmatnFamily,
                                 fontSize = 12.sp
                             ),
                             color = OnSurfaceVariant
@@ -785,7 +799,7 @@ private fun IntentMatchAccordionCard(
 
                 Icon(
                     imageVector = if (isExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                    contentDescription = if (isExpanded) "Collapse details" else "Expand details",
+                    contentDescription = null,
                     tint = OnSurfaceVariant
                 )
             }
@@ -809,11 +823,11 @@ private fun IntentMatchAccordionCard(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = match.description,
+                        text = primaryDesc,
                         style = MaterialTheme.typography.bodyMedium,
                         color = OnSurfaceVariant
                     )
-                    if (showPersian) {
+                    if (showSecondarySubtitles || isFa) {
                         Surface(
                             color = SurfaceContainerLow,
                             shape = RoundedCornerShape(14.dp),
@@ -823,21 +837,36 @@ private fun IntentMatchAccordionCard(
                                 modifier = Modifier.padding(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Text(
-                                    text = match.descriptionFa,
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontFamily = VazirmatnFamily,
-                                        lineHeight = 19.sp
-                                    ),
-                                    color = OnSurface
-                                )
-                                Text(
-                                    text = match.careTipFa,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontFamily = VazirmatnFamily
-                                    ),
-                                    color = Primary
-                                )
+                                if (isFa) {
+                                    Text(
+                                        text = match.careTipFa,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Primary
+                                    )
+                                    if (showSecondarySubtitles) {
+                                        Text(
+                                            text = secondaryDesc,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = OnSurfaceVariant
+                                        )
+                                    }
+                                } else {
+                                    Text(
+                                        text = match.descriptionFa,
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontFamily = VazirmatnFamily,
+                                            lineHeight = 19.sp
+                                        ),
+                                        color = OnSurface
+                                    )
+                                    Text(
+                                        text = match.careTipFa,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontFamily = VazirmatnFamily
+                                        ),
+                                        color = Primary
+                                    )
+                                }
                             }
                         }
                     }
@@ -847,12 +876,12 @@ private fun IntentMatchAccordionCard(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         AcousticMiniPill(
-                            label = "Pitch F0",
+                            label = strings.pitchF0Label,
                             value = match.pitchHz,
                             modifier = Modifier.weight(1f)
                         )
                         AcousticMiniPill(
-                            label = "Duration",
+                            label = strings.durationLabel,
                             value = match.durationSec,
                             modifier = Modifier.weight(1f)
                         )
@@ -885,7 +914,7 @@ private fun IntentMatchAccordionCard(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (isPlayingCatResponse) "Playing Purr..." else "Play Cat Response",
+                                text = if (isPlayingCatResponse) strings.playingPurr else strings.playCatResponse,
                                 style = MaterialTheme.typography.labelLarge,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -920,7 +949,7 @@ private fun IntentMatchAccordionCard(
                             ) {
                                 Icon(
                                     imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                                    contentDescription = if (isBookmarked) "Remove bookmark" else "Save to history",
+                                    contentDescription = "Bookmark",
                                     tint = if (isBookmarked) Primary else OnSurfaceVariant
                                 )
                             }
@@ -936,7 +965,7 @@ private fun IntentMatchAccordionCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Share,
-                                contentDescription = "Share translation",
+                                contentDescription = "Share",
                                 tint = OnSurfaceVariant
                             )
                         }
@@ -987,6 +1016,7 @@ private fun ActiveLearningFeedbackCard(
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalMeowStrings.current
     Surface(
         color = SurfaceContainerLow,
         shape = RoundedCornerShape(22.dp),
@@ -1001,14 +1031,16 @@ private fun ActiveLearningFeedbackCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Pets,
+                Image(
+                    painter = painterResource(id = R.drawable.ic_meow_logo),
                     contentDescription = null,
-                    tint = Primary,
-                    modifier = Modifier.size(18.dp)
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
                 )
                 Text(
-                    text = stringResource(R.string.feedback_title),
+                    text = strings.feedbackTitle,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = OnSurface
@@ -1033,7 +1065,7 @@ private fun ActiveLearningFeedbackCard(
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
-                            text = "Thanks! Active learning log updated for future calibration.",
+                            text = strings.feedbackLoggedNote,
                             style = MaterialTheme.typography.bodySmall,
                             color = ConfidenceEmerald
                         )
@@ -1069,7 +1101,7 @@ private fun ActiveLearningFeedbackCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.feedback_yes))
+                        Text(strings.feedbackYes)
                     }
 
                     OutlinedButton(
@@ -1094,14 +1126,14 @@ private fun ActiveLearningFeedbackCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.feedback_no))
+                        Text(strings.feedbackNo)
                     }
                 }
 
                 AnimatedVisibility(visible = selectedVerdict == "Wrong") {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = stringResource(R.string.feedback_correct_prompt),
+                            text = strings.feedbackSelectActual,
                             style = MaterialTheme.typography.labelMedium,
                             color = OnSurfaceVariant
                         )
@@ -1112,9 +1144,9 @@ private fun ActiveLearningFeedbackCard(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             listOf(
-                                IntentCode.BRUSHING to "Brushing / Attention",
-                                IntentCode.FOOD to "Waiting for Food",
-                                IntentCode.ISOLATION to "Isolation / Distress"
+                                IntentCode.BRUSHING to strings.feedbackOptBrushing,
+                                IntentCode.FOOD to strings.feedbackOptFood,
+                                IntentCode.ISOLATION to strings.feedbackOptIsolation
                             ).forEach { (code, label) ->
                                 val picked = selectedCorrection == code
                                 Surface(
@@ -1163,7 +1195,7 @@ private fun ActiveLearningFeedbackCard(
                         modifier = Modifier.size(17.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.feedback_submit))
+                    Text(strings.feedbackSubmit)
                 }
             }
         }
@@ -1172,6 +1204,7 @@ private fun ActiveLearningFeedbackCard(
 
 @Composable
 private fun DailyBehaviorTipCard(modifier: Modifier = Modifier) {
+    val strings = LocalMeowStrings.current
     Surface(
         shape = RoundedCornerShape(22.dp),
         color = SecondaryFixed,
@@ -1208,13 +1241,13 @@ private fun DailyBehaviorTipCard(modifier: Modifier = Modifier) {
             }
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = stringResource(R.string.daily_tip_title),
+                    text = strings.dailyTipTitle,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = OnPrimaryFixed
                 )
                 Text(
-                    text = stringResource(R.string.daily_tip_body),
+                    text = strings.dailyTipBody,
                     style = MaterialTheme.typography.bodySmall,
                     color = OnPrimaryContainer
                 )

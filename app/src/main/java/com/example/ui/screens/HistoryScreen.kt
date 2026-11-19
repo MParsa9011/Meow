@@ -62,6 +62,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.AppLanguage
 import com.example.data.model.IntentCode
 import com.example.data.model.TranslationRecord
 import com.example.ui.theme.AffectionCoral
@@ -72,8 +73,8 @@ import com.example.ui.theme.DistressPeriwinkle
 import com.example.ui.theme.DistressPeriwinkleContainer
 import com.example.ui.theme.FoodAmber
 import com.example.ui.theme.FoodAmberContainer
+import com.example.ui.theme.LocalMeowStrings
 import com.example.ui.theme.OnPrimary
-import com.example.ui.theme.OnPrimaryContainer
 import com.example.ui.theme.OnPrimaryFixed
 import com.example.ui.theme.OnSurface
 import com.example.ui.theme.OnSurfaceVariant
@@ -100,32 +101,36 @@ fun HistoryScreen(
     onRecordNewMeow: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalMeowStrings.current
+    val isFa = strings.language == AppLanguage.FA
+
     var searchQuery by remember { mutableStateOf("") }
-    var selectedTimeFilter by remember { mutableStateOf("All time") }
-    var selectedCategoryFilter by remember { mutableStateOf("All Meows") }
+    var selectedTimeKey by remember { mutableStateOf("all") }
+    var selectedCategoryKey by remember { mutableStateOf("all") }
 
     val now = System.currentTimeMillis()
-    val filtered = remember(translations, searchQuery, selectedTimeFilter, selectedCategoryFilter) {
+    val filtered = remember(translations, searchQuery, selectedTimeKey, selectedCategoryKey) {
         translations.filter { record ->
             val matchesQuery = searchQuery.isBlank() ||
                 record.title.contains(searchQuery, ignoreCase = true) ||
+                record.titleFa.contains(searchQuery, ignoreCase = true) ||
                 record.catName.contains(searchQuery, ignoreCase = true) ||
                 record.location.contains(searchQuery, ignoreCase = true) ||
                 record.intentTag.contains(searchQuery, ignoreCase = true)
 
-            val matchesCategory = when (selectedCategoryFilter) {
-                "Hunger" -> record.intentCode == "F"
-                "Affection" -> record.intentCode == "B"
-                "Needs Care" -> record.intentCode == "I"
-                "Bookmarked" -> record.isBookmarked
+            val matchesCategory = when (selectedCategoryKey) {
+                "food" -> record.intentCode == "F"
+                "affection" -> record.intentCode == "B"
+                "care" -> record.intentCode == "I"
+                "bookmarked" -> record.isBookmarked
                 else -> true
             }
 
             val ageHours = (now - record.createdAtMillis) / (1000L * 60L * 60L)
-            val matchesTime = when (selectedTimeFilter) {
-                "Today" -> record.timestampLabel.startsWith("Today", ignoreCase = true) || ageHours < 24
-                "Last week" -> ageHours <= 24 * 7
-                "This month" -> ageHours <= 24 * 31
+            val matchesTime = when (selectedTimeKey) {
+                "today" -> record.timestampLabel.startsWith("Today", ignoreCase = true) || ageHours < 24
+                "week" -> ageHours <= 24 * 7
+                "month" -> ageHours <= 24 * 31
                 else -> true
             }
             matchesQuery && matchesCategory && matchesTime
@@ -133,10 +138,11 @@ fun HistoryScreen(
     }
 
     val totalCount = translations.size
-    val topGroup = translations.groupBy { it.intentTag }.maxByOrNull { it.value.size }
+    val topGroup = translations.groupBy { it.intentCode }.maxByOrNull { it.value.size }
     val topPct = if (totalCount > 0 && topGroup != null) {
         (topGroup.value.size * 100) / totalCount
     } else 0
+    val topLabel = strings.intentTagLabelFromCodeString(topGroup?.key ?: "F")
 
     Box(modifier = modifier.fillMaxWidth()) {
         LazyColumn(
@@ -150,7 +156,7 @@ fun HistoryScreen(
             item {
                 WeeklyReportBanner(
                     totalAnalyzed = totalCount,
-                    topIntentLabel = topGroup?.key ?: "Hunger",
+                    topIntentLabel = topLabel,
                     topIntentPct = topPct,
                     modifier = Modifier.widthIn(max = 600.dp)
                 )
@@ -168,7 +174,7 @@ fun HistoryScreen(
                         onValueChange = { searchQuery = it },
                         placeholder = {
                             Text(
-                                text = "Search meows by cat, intent, or location...",
+                                text = strings.searchPlaceholder,
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         },
@@ -184,7 +190,7 @@ fun HistoryScreen(
                                 IconButton(onClick = { searchQuery = "" }) {
                                     Icon(
                                         imageVector = Icons.Filled.Close,
-                                        contentDescription = "Clear search",
+                                        contentDescription = "Clear",
                                         tint = OnSurfaceVariant
                                     )
                                 }
@@ -209,12 +215,17 @@ fun HistoryScreen(
                             .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf("All time", "Today", "Last week", "This month").forEach { tf ->
+                        listOf(
+                            "all" to strings.timeAll,
+                            "today" to strings.timeToday,
+                            "week" to strings.timeWeek,
+                            "month" to strings.timeMonth
+                        ).forEach { (key, label) ->
                             FilterPill(
-                                label = tf,
-                                selected = selectedTimeFilter == tf,
-                                onClick = { selectedTimeFilter = tf },
-                                tag = "time_filter_$tf"
+                                label = label,
+                                selected = selectedTimeKey == key,
+                                onClick = { selectedTimeKey = key },
+                                tag = "time_filter_$key"
                             )
                         }
                     }
@@ -225,12 +236,18 @@ fun HistoryScreen(
                             .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf("All Meows", "Hunger", "Affection", "Needs Care", "Bookmarked").forEach { cat ->
+                        listOf(
+                            "all" to strings.catAll,
+                            "food" to strings.catHunger,
+                            "affection" to strings.catAffection,
+                            "care" to strings.catNeedsCare,
+                            "bookmarked" to strings.catBookmarked
+                        ).forEach { (key, label) ->
                             FilterPill(
-                                label = cat,
-                                selected = selectedCategoryFilter == cat,
-                                onClick = { selectedCategoryFilter = cat },
-                                tag = "cat_filter_$cat"
+                                label = label,
+                                selected = selectedCategoryKey == key,
+                                onClick = { selectedCategoryKey = key },
+                                tag = "cat_filter_$key"
                             )
                         }
                     }
@@ -259,13 +276,13 @@ fun HistoryScreen(
                                 modifier = Modifier.size(36.dp)
                             )
                             Text(
-                                text = "No matching meow logs",
+                                text = strings.noMatchingLogs,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = OnSurface
                             )
                             Text(
-                                text = "Try adjusting your search filters or record a new meow in Translate.",
+                                text = strings.noMatchingHint,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = OnSurfaceVariant
                             )
@@ -276,8 +293,9 @@ fun HistoryScreen(
                 items(filtered, key = { it.id }) { record ->
                     HistoryRecordCard(
                         record = record,
+                        isFa = isFa,
                         isPlaying = playingAudioId == "hist_play_${record.id}",
-                        showPersian = showPersian,
+                        showSecondary = showPersian,
                         onPlay = { onPlayAudio(record) },
                         onToggleBookmark = { onToggleBookmark(record) },
                         onFeedback = { verdict, corrected -> onSubmitFeedback(record, verdict, corrected) },
@@ -309,7 +327,7 @@ fun HistoryScreen(
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "Record New Meow",
+                text = strings.recordNewMeow,
                 style = MaterialTheme.typography.labelLarge
             )
         }
@@ -323,6 +341,7 @@ private fun WeeklyReportBanner(
     topIntentPct: Int,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalMeowStrings.current
     Surface(
         shape = RoundedCornerShape(24.dp),
         color = SecondaryFixed,
@@ -330,16 +349,12 @@ private fun WeeklyReportBanner(
     ) {
         Column(
             modifier = Modifier
-                .background(
-                    Brush.linearGradient(
-                        listOf(PrimaryFixed, SecondaryFixed)
-                    )
-                )
+                .background(Brush.linearGradient(listOf(PrimaryFixed, SecondaryFixed)))
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Weekly Voice Report",
+                text = strings.weeklyVoiceReport,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.ExtraBold,
                 color = OnPrimaryFixed
@@ -355,12 +370,12 @@ private fun WeeklyReportBanner(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "TOTAL ANALYZED",
+                            text = strings.totalAnalyzedLabel,
                             style = MaterialTheme.typography.labelSmall,
                             color = OnSurfaceVariant
                         )
                         Text(
-                            text = "$totalAnalyzed meows",
+                            text = "$totalAnalyzed ${strings.meowsUnit}",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.ExtraBold,
                             color = OnPrimaryFixed
@@ -374,7 +389,7 @@ private fun WeeklyReportBanner(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "TOP VOCAL STATE",
+                            text = strings.topVocalStateLabel,
                             style = MaterialTheme.typography.labelSmall,
                             color = OnSurfaceVariant
                         )
@@ -424,14 +439,16 @@ private fun FilterPill(
 @Composable
 private fun HistoryRecordCard(
     record: TranslationRecord,
+    isFa: Boolean,
     isPlaying: Boolean,
-    showPersian: Boolean,
+    showSecondary: Boolean,
     onPlay: () -> Unit,
     onToggleBookmark: () -> Unit,
     onFeedback: (String, IntentCode?) -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalMeowStrings.current
     var showCorrector by remember(record.id) { mutableStateOf(false) }
 
     val (accentColor, badgeBg, icon) = when (record.intentCode) {
@@ -445,6 +462,10 @@ private fun HistoryRecordCard(
             listOf(0.3f, 0.5f, 0.8f, 0.9f, 0.7f, 0.4f, 0.6f, 0.8f, 0.5f, 0.3f)
         }
     }
+
+    val primaryTitle = if (isFa) record.titleFa else record.title
+    val secondaryTitle = if (isFa) record.title else record.titleFa
+    val localizedTag = strings.intentTagLabelFromCodeString(record.intentCode)
 
     Surface(
         color = SurfaceContainerLowest,
@@ -475,14 +496,14 @@ private fun HistoryRecordCard(
                     ) {
                         Icon(
                             imageVector = icon,
-                            contentDescription = record.intentTag,
+                            contentDescription = localizedTag,
                             tint = accentColor,
                             modifier = Modifier.size(22.dp)
                         )
                     }
                     Column {
                         Text(
-                            text = record.title,
+                            text = primaryTitle,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = OnSurface,
@@ -508,7 +529,7 @@ private fun HistoryRecordCard(
                     ) {
                         Icon(
                             imageVector = if (record.isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                            contentDescription = "Toggle bookmark",
+                            contentDescription = "Bookmark",
                             tint = if (record.isBookmarked) Primary else OnSurfaceVariant
                         )
                     }
@@ -520,25 +541,24 @@ private fun HistoryRecordCard(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.DeleteOutline,
-                            contentDescription = "Delete entry",
+                            contentDescription = "Delete",
                             tint = OnSurfaceVariant
                         )
                     }
                 }
             }
 
-            if (showPersian) {
+            if (showSecondary) {
                 Text(
-                    text = record.titleFa,
+                    text = secondaryTitle,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = VazirmatnFamily,
+                        fontFamily = if (isFa) MaterialTheme.typography.bodySmall.fontFamily else VazirmatnFamily,
                         fontSize = 12.sp
                     ),
                     color = OnSurfaceVariant
                 )
             }
 
-            // Playback + Waveform Strip
             Surface(
                 color = SurfaceContainerLow,
                 shape = RoundedCornerShape(14.dp),
@@ -560,7 +580,7 @@ private fun HistoryRecordCard(
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                contentDescription = if (isPlaying) "Pause clip" else "Play clip",
+                                contentDescription = if (isPlaying) "Pause" else "Play",
                                 tint = OnPrimary,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -604,7 +624,7 @@ private fun HistoryRecordCard(
                         shape = CircleShape
                     ) {
                         Text(
-                            text = "${record.confidence}% Confidence • ${record.intentTag}",
+                            text = strings.confidenceTagFormat.format(record.confidence, localizedTag),
                             style = MaterialTheme.typography.labelSmall,
                             color = ConfidenceEmerald,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -646,7 +666,7 @@ private fun HistoryRecordCard(
                                 shape = CircleShape
                             ) {
                                 Text(
-                                    text = "Accurate",
+                                    text = strings.accurateButton,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = ConfidenceEmerald,
                                     modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
@@ -669,7 +689,7 @@ private fun HistoryRecordCard(
                                         modifier = Modifier.size(11.dp)
                                     )
                                     Text(
-                                        text = "Edit Tag",
+                                        text = strings.editTagButton,
                                         style = MaterialTheme.typography.labelSmall,
                                         color = Primary
                                     )
@@ -699,9 +719,9 @@ private fun HistoryRecordCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         listOf(
-                            IntentCode.FOOD to "Hunger",
-                            IntentCode.BRUSHING to "Affection",
-                            IntentCode.ISOLATION to "Needs Care"
+                            IntentCode.FOOD to strings.catHunger,
+                            IntentCode.BRUSHING to strings.catAffection,
+                            IntentCode.ISOLATION to strings.catNeedsCare
                         ).forEach { (code, tagLabel) ->
                             Surface(
                                 onClick = {
@@ -712,7 +732,7 @@ private fun HistoryRecordCard(
                                 shape = CircleShape
                             ) {
                                 Text(
-                                    text = "Set: $tagLabel",
+                                    text = "${strings.setTagPrefix}$tagLabel",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = OnPrimaryFixed,
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)

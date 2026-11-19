@@ -5,7 +5,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.example.data.model.AppLanguage
 
 private val MeowLightColorScheme = lightColorScheme(
     primary = Primary,
@@ -52,12 +56,23 @@ val MeowShapes = Shapes(
 
 @Composable
 fun MeowTheme(
+    language: AppLanguage = AppLanguage.FA,
     content: @Composable () -> Unit
 ) {
-    MaterialTheme(
-        colorScheme = MeowLightColorScheme,
-        typography = MeowTypography,
-        shapes = MeowShapes,
-        content = content
-    )
+    val isPersian = language == AppLanguage.FA
+    val layoutDirection = if (isPersian) LayoutDirection.Rtl else LayoutDirection.Ltr
+    val typography = if (isPersian) MeowPersianTypography else MeowTypography
+    val strings = stringsForLanguage(language)
+
+    CompositionLocalProvider(
+        LocalLayoutDirection provides layoutDirection,
+        LocalMeowStrings provides strings
+    ) {
+        MaterialTheme(
+            colorScheme = MeowLightColorScheme,
+            typography = typography,
+            shapes = MeowShapes,
+            content = content
+        )
+    }
 }

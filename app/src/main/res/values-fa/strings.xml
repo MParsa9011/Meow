@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">میو</string>
+    <string name="app_subtitle">مترجم هوشمند صدای گربه</string>
+    <string name="nav_translate">ترجمه</string>
+    <string name="nav_history">تاریخچه</string>
+    <string name="nav_profile">پروفایل</string>
+    <string name="nav_settings">تنظیمات</string>
+</resources>
