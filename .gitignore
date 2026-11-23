@@ -1,5 +1,45 @@
+# Built application files
+*.apk
+*.aar
+*.aab
+
+# Gradle build directories & files
 .gradle/
 build/
 app/build/
+gradle-app.setting
+!gradle-wrapper.jar
+
+# Android Studio & IDE configurations
+.idea/
+*.iml
+.vscode/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Local & environment configuration
 local.properties
 .env
+.env.local
+
+# Keystores & release certificates
+*.jks
+*.keystore
+release.keystore
+debug.keystore
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+
+# Python / ML scratch environments (if training scripts are used)
+__pycache__/
+*.py[cod]
+.venv/
+env/
+.ipynb_checkpoints/
+.ruff_cache/
