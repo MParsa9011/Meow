@@ -26,5 +26,6 @@ data class AppSettings(
     val saveAudioLocally: Boolean = true,
     val showPersianSubtitles: Boolean = true,
     val isProMember: Boolean = false,
+    val languageSelected: Boolean = false,
     val onboardingCompleted: Boolean = false
 )

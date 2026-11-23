@@ -1,19 +1,5 @@
-# Gradle & Build outputs
 .gradle/
 build/
 app/build/
-captures/
-.cxx/
-
-# Local configuration & Secrets
 local.properties
 .env
-*.jks
-*.keystore
-
-# IDE files
-.idea/
-*.iml
-.vscode/
-.DS_Store
-Thumbs.db

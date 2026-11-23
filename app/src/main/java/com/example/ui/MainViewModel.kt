@@ -115,8 +115,16 @@ class MainViewModel(
         setLanguage(next)
     }
 
-    fun setLanguage(language: AppLanguage) {
+    fun previewInitialLanguage(language: AppLanguage) {
         repository.updateSettings { it.copy(language = language) }
+    }
+
+    fun selectInitialLanguage(language: AppLanguage) {
+        repository.updateSettings { it.copy(language = language, languageSelected = true) }
+    }
+
+    fun setLanguage(language: AppLanguage) {
+        repository.updateSettings { it.copy(language = language, languageSelected = true) }
         showToast(
             if (language == AppLanguage.FA) "زبان برنامه به فارسی تغییر یافت"
             else "App language switched to English"

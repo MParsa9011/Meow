@@ -2,17 +2,8 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main, master ]
-  workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Build type (debug or release)'
-        required: true
-        default: 'debug'
-        type: choice
-        options:
-          - debug
-          - release
+    branches: [ main ]
+  workflow_dispatch: # امکان اجرای دستی از تب Actions
 
 jobs:
   build:
@@ -33,72 +24,8 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
-      - name: Configure .env from GitHub Secrets (if set)
-        env:
-          MYKET_PUBLIC_KEY: ${{ secrets.MYKET_PUBLIC_KEY }}
-        run: |
-          if [ -n "$MYKET_PUBLIC_KEY" ]; then
-            echo "MYKET_PUBLIC_KEY=\"$MYKET_PUBLIC_KEY\"" > .env
-            echo "Created .env from GitHub Secrets."
-          else
-            echo "MYKET_PUBLIC_KEY secret not set; falling back to .env.example."
-          fi
-
-      - name: Generate debug.keystore if missing
-        run: |
-          if [ ! -f debug.keystore ]; then
-            keytool -genkey -v -keystore debug.keystore \
-              -storepass android -alias androiddebugkey -keypass android \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
-
       - name: Build Debug APK
-        if: github.event_name != 'workflow_dispatch' || inputs.build_type == 'debug'
         run: gradle assembleDebug --stacktrace
 
       - name: Upload Debug APK
-        if: github.event_name != 'workflow_dispatch' || inputs.build_type == 'debug'
         uses: actions/upload-artifact@v4
-        with:
-          name: meow-app-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
-
-      - name: Build Release APK
-        if: github.event_name == 'workflow_dispatch' && inputs.build_type == 'release'
-        run: gradle assembleRelease --stacktrace
-
-      - name: Sign Release APK
-        if: github.event_name == 'workflow_dispatch' && inputs.build_type == 'release'
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "KEYSTORE_BASE64 secret is missing!"
-            exit 1
-          fi
-
-          echo "$KEYSTORE_BASE64" | base64 --decode > release.keystore
-          BUILD_TOOLS=$(ls -d "$ANDROID_HOME/build-tools/"* | sort -V | tail -n 1)
-          UNSIGNED_APK=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
-
-          "$BUILD_TOOLS/zipalign" -v -p 4 "$UNSIGNED_APK" app/build/outputs/apk/release/app-aligned.apk
-          "$BUILD_TOOLS/apksigner" sign \
-            --ks release.keystore \
-            --ks-pass "pass:$KEYSTORE_PASSWORD" \
-            --ks-key-alias "$KEY_ALIAS" \
-            --key-pass "pass:$KEY_PASSWORD" \
-            --out app/build/outputs/apk/release/meow-release-signed.apk \
-            app/build/outputs/apk/release/app-aligned.apk
-
-          rm -f release.keystore app/build/outputs/apk/release/app-aligned.apk "$UNSIGNED_APK"
-
-      - name: Upload Release APK
-        if: github.event_name == 'workflow_dispatch' && inputs.build_type == 'release'
-        uses: actions/upload-artifact@v4
-        with:
-          name: meow-app-release-apk
-          path: app/build/outputs/apk/release/meow-release-signed.apk

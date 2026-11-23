@@ -31,6 +31,7 @@ class SettingsStore(context: Context) {
             saveAudioLocally = prefs.getBoolean("save_locally", true),
             showPersianSubtitles = prefs.getBoolean("show_persian", true),
             isProMember = prefs.getBoolean("is_pro", false),
+            languageSelected = prefs.getBoolean("language_selected", false),
             onboardingCompleted = prefs.getBoolean("onboarding_completed", false)
         )
     }
@@ -52,6 +53,7 @@ class SettingsStore(context: Context) {
             .putBoolean("save_locally", next.saveAudioLocally)
             .putBoolean("show_persian", next.showPersianSubtitles)
             .putBoolean("is_pro", next.isProMember)
+            .putBoolean("language_selected", next.languageSelected)
             .putBoolean("onboarding_completed", next.onboardingCompleted)
             .apply()
     }

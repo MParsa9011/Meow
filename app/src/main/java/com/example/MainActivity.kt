@@ -52,6 +52,7 @@ import com.example.ui.modals.MeowProBottomSheet
 import com.example.ui.modals.PrivacyPolicyDialog
 import com.example.ui.modals.SwitchPetBottomSheet
 import com.example.ui.screens.HistoryScreen
+import com.example.ui.screens.LanguageSelectionScreen
 import com.example.ui.screens.OnboardingScreen
 import com.example.ui.screens.ProfileScreen
 import com.example.ui.screens.SettingsScreen
@@ -173,6 +174,15 @@ class MainActivity : ComponentActivity() {
                             viewModel.updatePetCustomAvatar(uri)
                         }
                     }
+                }
+
+                if (!settings.languageSelected) {
+                    LanguageSelectionScreen(
+                        selectedLanguage = settings.language,
+                        onSelectLanguage = { lang -> viewModel.previewInitialLanguage(lang) },
+                        onConfirmLanguage = { lang -> viewModel.selectInitialLanguage(lang) }
+                    )
+                    return@MeowTheme
                 }
 
                 if (!settings.onboardingCompleted) {
