@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,7 +32,6 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
@@ -41,8 +41,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -66,10 +64,10 @@ import com.example.ui.theme.PlusJakartaSansFamily
 import com.example.ui.theme.Primary
 import com.example.ui.theme.PrimaryContainer
 import com.example.ui.theme.PrimaryFixed
-import com.example.ui.theme.SecondaryFixed
+import com.example.ui.theme.SelectedCardSurface
 import com.example.ui.theme.Surface
 import com.example.ui.theme.SurfaceContainer
-import com.example.ui.theme.SurfaceContainerLowest
+import com.example.ui.theme.SurfaceContainerLow
 import com.example.ui.theme.VazirmatnFamily
 
 @Composable
@@ -88,8 +86,8 @@ fun LanguageSelectionScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Surface)
                 .statusBarsPadding()
-                .navigationBarsPadding()
         ) {
             Column(
                 modifier = Modifier
@@ -104,18 +102,13 @@ fun LanguageSelectionScreen(
             ) {
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Brand Logo Badge
+                // Brand Logo Medallion (clean warm border on unified Surface)
                 Box(
                     modifier = Modifier
                         .size(104.dp)
-                        .shadow(
-                            elevation = 14.dp,
-                            shape = CircleShape,
-                            ambientColor = PrimaryContainer.copy(alpha = 0.45f),
-                            spotColor = PrimaryContainer.copy(alpha = 0.45f)
-                        )
                         .clip(CircleShape)
-                        .background(Color.White),
+                        .background(Color.White)
+                        .border(1.5.dp, OutlineVariant.copy(alpha = 0.45f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
@@ -198,7 +191,7 @@ fun LanguageSelectionScreen(
 
                 Spacer(modifier = Modifier.height(28.dp))
 
-                // Language Option Cards
+                // Language Option Cards (100% opaque, harmonized with warm Surface)
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -226,27 +219,20 @@ fun LanguageSelectionScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // Subtle Reassurance Banner
+                // Uniform Opaque Reassurance Banner
                 Surface(
                     shape = RoundedCornerShape(18.dp),
-                    color = SecondaryFixed.copy(alpha = 0.55f),
+                    color = SurfaceContainerLow,
+                    border = BorderStroke(1.dp, OutlineVariant.copy(alpha = 0.45f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
+                    Box(
                         modifier = Modifier
-                            .background(
-                                Brush.horizontalGradient(
-                                    listOf(
-                                        PrimaryFixed.copy(alpha = 0.5f),
-                                        SecondaryFixed.copy(alpha = 0.55f)
-                                    )
-                                )
-                            )
+                            .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = if (isFa) {
@@ -265,16 +251,17 @@ fun LanguageSelectionScreen(
                 }
             }
 
-            // Bottom Pinned Confirm CTA
-            Surface(
-                color = Surface.copy(alpha = 0.97f),
-                shadowElevation = 8.dp,
-                modifier = Modifier.fillMaxWidth()
+            // Seamless Bottom Confirm CTA (same Surface color, zero shadow seam)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Surface)
+                    .navigationBarsPadding()
             ) {
                 Box(
                     modifier = Modifier
                         .widthIn(max = 600.dp)
-                        .align(Alignment.CenterHorizontally)
+                        .align(Alignment.Center)
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 16.dp)
                 ) {
@@ -322,7 +309,7 @@ private fun LanguageChoiceCard(
     modifier: Modifier = Modifier
 ) {
     val containerColor by animateColorAsState(
-        targetValue = if (selected) PrimaryFixed.copy(alpha = 0.55f) else SurfaceContainerLowest,
+        targetValue = if (selected) SelectedCardSurface else SurfaceContainerLow,
         animationSpec = tween(durationMillis = 200),
         label = "lang_card_bg"
     )
@@ -338,7 +325,8 @@ private fun LanguageChoiceCard(
             shape = RoundedCornerShape(22.dp),
             color = containerColor,
             border = BorderStroke(if (selected) 2.dp else 1.dp, borderColor),
-            shadowElevation = if (selected) 4.dp else 0.dp,
+            shadowElevation = 0.dp,
+            tonalElevation = 0.dp,
             modifier = modifier
                 .fillMaxWidth()
                 .minimumInteractiveComponentSize()

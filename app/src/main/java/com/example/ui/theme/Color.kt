@@ -11,6 +11,7 @@ val SurfaceContainerLow = Color(0xFFFFF1EC)
 val SurfaceContainer = Color(0xFFF9EBE6)
 val SurfaceContainerHigh = Color(0xFFF3E5E0)
 val SurfaceContainerHighest = Color(0xFFEDE0DB)
+val SelectedCardSurface = Color(0xFFFFEDE2)
 
 val OnSurface = Color(0xFF211A17)
 val OnSurfaceVariant = Color(0xFF584235)
