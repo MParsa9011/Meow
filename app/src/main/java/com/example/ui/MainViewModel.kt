@@ -18,6 +18,7 @@ import com.example.data.model.ModelEngineType
 import com.example.data.model.PetProfile
 import com.example.data.model.TranslationRecord
 import com.example.data.model.VoiceAnalysisResult
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -83,30 +84,7 @@ class MainViewModel(
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
 
-    init {
-        // Pre-run analysis on the first bundled sample so the user sees live AI results immediately
-        viewModelScope.launch {
-            runCatching {
-                val defaultSample = bundledSamples.first()
-                val samples8k = audioManager.loadBundledSample(defaultSample.assetFilename)
-                val result = aiEngine.analyzeAudio(
-                    rawSamples8k = samples8k,
-                    engineType = settings.value.modelEngine,
-                    noiseFilterEnabled = settings.value.noiseFilterEnabled,
-                    sampleAssetName = defaultSample.assetFilename
-                )
-                _translatorState.value = TranslatorUiState(
-                    phase = RecordingPhase.COMPLETE,
-                    statusText = "Sample ready • ${defaultSample.shortLabel}",
-                    activeSampleId = defaultSample.id,
-                    analysisResult = result,
-                    currentTranslationId = "hist-1",
-                    isCurrentBookmarked = true,
-                    expandedMatchRank = 1
-                )
-            }
-        }
-    }
+    // Translator starts cleanly in IDLE until the user records, uploads, or selects a sample
 
     private fun isFa(): Boolean = settings.value.language == AppLanguage.FA
 

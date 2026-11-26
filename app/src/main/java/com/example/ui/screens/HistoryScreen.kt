@@ -142,7 +142,9 @@ fun HistoryScreen(
     val topPct = if (totalCount > 0 && topGroup != null) {
         (topGroup.value.size * 100) / totalCount
     } else 0
-    val topLabel = strings.intentTagLabelFromCodeString(topGroup?.key ?: "F")
+    val topLabel = if (topGroup != null) {
+        strings.intentTagLabelFromCodeString(topGroup.key)
+    } else "—"
 
     Box(modifier = modifier.fillMaxWidth()) {
         LazyColumn(

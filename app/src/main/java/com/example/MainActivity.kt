@@ -17,11 +17,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -86,30 +87,52 @@ class MainActivity : ComponentActivity() {
             )
         )
 
-        val publicKey = MyketSecurity.resolveRuntimePublicKey()
-        val helper = MyketIabHelper(this, publicKey)
-        myketHelper = helper
-
-        helper.startSetup(object : MyketIabHelper.OnIabSetupFinishedListener {
-            override fun onIabSetupFinished(result: com.example.billing.IabResult) {
-                if (!result.isSuccess) return
-                helper.queryInventoryAsync(
-                    listOf(MyketIabHelper.SKU_PRO_MONTHLY, MyketIabHelper.SKU_PRO_LIFETIME)
-                ) { invResult, inventory ->
-                    if (invResult.isSuccess && inventory != null) {
-                        val ownsPro = inventory.hasPurchase(MyketIabHelper.SKU_PRO_MONTHLY) ||
-                            inventory.hasPurchase(MyketIabHelper.SKU_PRO_LIFETIME)
-                        viewModel.syncProOwnershipFromMyket(ownsPro)
-                    }
-                }
-            }
-        })
-
         setContent {
-            val settings by viewModel.settings.collectAsStateWithLifecycle()
             var showSplash by rememberSaveable { mutableStateOf(true) }
 
-            Box(modifier = Modifier.fillMaxSize()) {
+            if (showSplash) {
+                SplashVideoScreen(
+                    onFinished = { showSplash = false },
+                    modifier = Modifier.fillMaxSize()
+                )
+                return@setContent
+            }
+
+            // Initialize Myket billing & AI pre-analysis only after splash finishes
+            // so zero CPU/IPC contention affects the intro logo motion
+            val helper = remember {
+                myketHelper ?: MyketIabHelper(
+                    this@MainActivity,
+                    MyketSecurity.resolveRuntimePublicKey()
+                ).also { myketHelper = it }
+            }
+
+            LaunchedEffect(Unit) {
+                helper.startSetup(object : MyketIabHelper.OnIabSetupFinishedListener {
+                    override fun onIabSetupFinished(result: com.example.billing.IabResult) {
+                        if (!result.isSuccess) return
+                        helper.queryInventoryAsync(
+                            listOf(MyketIabHelper.SKU_PRO_MONTHLY, MyketIabHelper.SKU_PRO_LIFETIME)
+                        ) { invResult, inventory ->
+                            if (invResult.isSuccess && inventory != null) {
+                                val ownsPro = inventory.hasPurchase(MyketIabHelper.SKU_PRO_MONTHLY) ||
+                                    inventory.hasPurchase(MyketIabHelper.SKU_PRO_LIFETIME)
+                                viewModel.syncProOwnershipFromMyket(ownsPro)
+                            }
+                        }
+                    }
+                })
+            }
+
+            val settings by viewModel.settings.collectAsStateWithLifecycle()
+            var contentVisible by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) { contentVisible = true }
+
+            AnimatedVisibility(
+                visible = contentVisible,
+                enter = fadeIn(animationSpec = tween(durationMillis = 220)),
+                modifier = Modifier.fillMaxSize()
+            ) {
                 MeowTheme(language = settings.language) {
                 val strings = LocalMeowStrings.current
                 val isFa = settings.language == AppLanguage.FA
@@ -501,16 +524,6 @@ class MainActivity : ComponentActivity() {
                 if (showPrivacyDialog) {
                     PrivacyPolicyDialog(onDismiss = { showPrivacyDialog = false })
                 }
-                }
-
-                AnimatedVisibility(
-                    visible = showSplash,
-                    exit = fadeOut(animationSpec = tween(durationMillis = 350)),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    SplashVideoScreen(
-                        onFinished = { showSplash = false }
-                    )
                 }
             }
         }

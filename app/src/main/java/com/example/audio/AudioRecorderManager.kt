@@ -5,7 +5,6 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioRecord
-import android.media.AudioTrack
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
@@ -27,12 +26,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import kotlin.math.PI
-import kotlin.math.abs
-import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.sin
 import kotlin.math.sqrt
 
 class AudioRecorderManager(private val context: Context) {
@@ -49,7 +44,6 @@ class AudioRecorderManager(private val context: Context) {
     val playingId: StateFlow<String?> = _playingId.asStateFlow()
 
     private var mediaPlayer: MediaPlayer? = null
-    private var responseTrack: AudioTrack? = null
 
     @SuppressLint("MissingPermission")
     fun startRecording(sampleRate: Int = 16000) {
@@ -322,25 +316,48 @@ class AudioRecorderManager(private val context: Context) {
         stopPlayback()
 
         try {
-            val mp = MediaPlayer()
+            val mp = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                )
+            }
             if (filePath != null && File(filePath).exists()) {
                 mp.setDataSource(filePath)
             } else if (sampleAssetName != null) {
-                val afd = context.assets.openFd("samples/$sampleAssetName")
-                mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-                afd.close()
+                try {
+                    val afd = context.assets.openFd("samples/$sampleAssetName")
+                    mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                    afd.close()
+                } catch (_: Exception) {
+                    // Fallback if asset is compressed in APK: cache locally for MediaPlayer
+                    val cacheFile = File(context.cacheDir, "sample_$sampleAssetName")
+                    if (!cacheFile.exists()) {
+                        context.assets.open("samples/$sampleAssetName").use { input ->
+                            FileOutputStream(cacheFile).use { output -> input.copyTo(output) }
+                        }
+                    }
+                    mp.setDataSource(cacheFile.absolutePath)
+                }
             } else {
                 mp.release()
                 return
             }
             mp.setOnCompletionListener {
-                _playingId.value = null
+                if (_playingId.value == playId) {
+                    _playingId.value = null
+                }
                 it.release()
                 if (mediaPlayer === it) mediaPlayer = null
             }
             mp.setOnErrorListener { player, _, _ ->
-                _playingId.value = null
+                if (_playingId.value == playId) {
+                    _playingId.value = null
+                }
                 player.release()
+                if (mediaPlayer === player) mediaPlayer = null
                 true
             }
             mp.prepare()
@@ -353,69 +370,16 @@ class AudioRecorderManager(private val context: Context) {
     }
 
     /**
-     * Synthesizes a pleasant feline vocal response chirp/trill matching the predicted intent
-     * when user taps "Play Cat Response"
+     * Plays a real recorded feline vocalization matching the predicted intent
+     * when the user taps "Play Cat Response".
      */
     fun playCatResponse(playId: String, intentCode: IntentCode) {
-        if (_playingId.value == playId) {
-            stopPlayback()
-            return
+        val realCatSample = when (intentCode) {
+            IntentCode.FOOD -> "F_MIN01_EU_FN_BEN01_102.wav"
+            IntentCode.BRUSHING -> "B_BRA01_MC_MN_SIM01_301.wav"
+            IntentCode.ISOLATION -> "I_MIN01_EU_FN_BEN01_106.wav"
         }
-        stopPlayback()
-        _playingId.value = playId
-
-        CoroutineScope(Dispatchers.IO).launch {
-            val sr = 22050
-            val durationSec = 1.15
-            val nSamples = (sr * durationSec).toInt()
-            val pcm = ShortArray(nSamples)
-
-            for (i in 0 until nSamples) {
-                val t = i.toDouble() / sr
-                val env = sin(PI * (t / durationSec)).coerceAtLeast(0.0) * exp(-1.2 * t)
-                val freq = when (intentCode) {
-                    IntentCode.FOOD -> 560.0 + 240.0 * sin(2.0 * PI * 1.4 * t) // rising eager chirp
-                    IntentCode.BRUSHING -> 420.0 + 45.0 * sin(2.0 * PI * 22.0 * t) // warm trill vibrato
-                    IntentCode.ISOLATION -> 490.0 - 110.0 * (t / durationSec) // gentle soothing downward call
-                }
-                val wave = 0.65 * sin(2.0 * PI * freq * t) + 0.25 * sin(4.0 * PI * freq * t)
-                pcm[i] = (wave * env * 18000.0).toInt().coerceIn(-32767, 32767).toShort()
-            }
-
-            try {
-                val bufSize = pcm.size * 2
-                val track = AudioTrack.Builder()
-                    .setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                            .build()
-                    )
-                    .setAudioFormat(
-                        AudioFormat.Builder()
-                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                            .setSampleRate(sr)
-                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                            .build()
-                    )
-                    .setBufferSizeInBytes(bufSize)
-                    .setTransferMode(AudioTrack.MODE_STATIC)
-                    .build()
-
-                responseTrack = track
-                track.write(pcm, 0, pcm.size)
-                track.play()
-                kotlinx.coroutines.delay((durationSec * 1000).toLong() + 100)
-                if (_playingId.value == playId) {
-                    _playingId.value = null
-                }
-                track.stop()
-                track.release()
-                if (responseTrack === track) responseTrack = null
-            } catch (_: Exception) {
-                _playingId.value = null
-            }
-        }
+        playAudioSource(playId = playId, filePath = null, sampleAssetName = realCatSample)
     }
 
     fun stopPlayback() {
@@ -425,12 +389,6 @@ class AudioRecorderManager(private val context: Context) {
         } catch (_: Exception) {
         }
         mediaPlayer = null
-        try {
-            responseTrack?.stop()
-            responseTrack?.release()
-        } catch (_: Exception) {
-        }
-        responseTrack = null
         _playingId.value = null
     }
 

@@ -101,10 +101,11 @@ fun ProfileScreen(
         translations.filter { it.catName.equals(pet.name, ignoreCase = true) }
             .ifEmpty { translations }
     }
+    val hasRecords = petRecords.isNotEmpty()
     val total = petRecords.size.coerceAtLeast(1)
-    val foodPct = (petRecords.count { it.intentCode == "F" } * 100) / total
-    val brushPct = (petRecords.count { it.intentCode == "B" } * 100) / total
-    val carePct = (100 - foodPct - brushPct).coerceAtLeast(0)
+    val foodPct = if (hasRecords) (petRecords.count { it.intentCode == "F" } * 100) / total else 0
+    val brushPct = if (hasRecords) (petRecords.count { it.intentCode == "B" } * 100) / total else 0
+    val carePct = if (hasRecords) (100 - foodPct - brushPct).coerceAtLeast(0) else 0
 
     LazyColumn(
         modifier = modifier
